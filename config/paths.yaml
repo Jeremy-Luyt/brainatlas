@@ -1,0 +1,4 @@
+data_root: data
+projects_dir: data/projects
+temp_dir: data/temp
+uploads_dir: data/temp/uploads

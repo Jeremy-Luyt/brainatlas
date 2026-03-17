@@ -1,0 +1,195 @@
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Editor / IDE
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+
+# Visual Studio
+.vs/
+*.VC.db
+*.VC.VC.opendb
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging / build
+build/
+dist/
+.eggs/
+*.egg-info/
+pip-wheel-metadata/
+
+# Python cache / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist-frontend/
+coverage/
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+log/
+
+# =========================
+# Runtime data / generated results
+# =========================
+data/projects/*
+!data/projects/.gitkeep
+
+data/cache/*
+!data/cache/.gitkeep
+
+data/temp/*
+!data/temp/.gitkeep
+
+data/exports/*
+!data/exports/.gitkeep
+
+artifacts/screenshots/*
+!artifacts/screenshots/.gitkeep
+
+artifacts/demo_video/*
+!artifacts/demo_video/.gitkeep
+
+artifacts/reports/*
+!artifacts/reports/.gitkeep
+
+# =========================
+# Generated previews / viewer assets
+# =========================
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.glb
+
+# Keep source assets in frontend/assets tracked
+!apps/brainatlas/frontend/assets/**
+!tools/templates/**
+
+# =========================
+# Medical / imaging generated files
+# =========================
+*.nii
+*.nii.gz
+*.nrrd
+*.mha
+*.mhd
+*.tif
+*.tiff
+
+# If you want demo input data versioned, keep this folder tracked
+!data/demo_inputs/**
+!tests/data/**
+
+# =========================
+# Legacy C++ / build outputs
+# =========================
+*.obj
+*.o
+*.lo
+*.la
+*.a
+*.lib
+*.dll
+*.exp
+*.pdb
+*.idb
+*.ilk
+*.pch
+*.sbr
+*.bsc
+*.tlog
+*.manifest
+*.rsp
+*.tmp
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake-build-*/
+compile_commands.json
+Testing/
+
+# Visual Studio build dirs
+Debug/
+Release/
+x64/
+x86/
+Win32/
+out/
+
+# =========================
+# Executables
+# =========================
+*.exe
+
+# Keep tool wrappers / placeholder files, but ignore real binaries by default
+tools/bin/**/*
+!tools/bin/**/.gitkeep
+!tools/bin/**/README.md
+
+# Keep batch scripts tracked
+!tools/batch/**/*.bat
+!tools/batch/**/README.md
+!tools/batch/README.md
+
+# Keep legacy source placeholders tracked
+!tools/src_legacy/**/.gitkeep
+!tools/src_legacy/**/README.md
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Temporary files
+# =========================
+*.bak
+*.swp
+*.swn
+*.tmp
+*~

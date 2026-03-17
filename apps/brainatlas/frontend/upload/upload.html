@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>BrainAtlas · 数据上传与任务管理</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- 使用你提供的图片作为平台 favicon（与 HTML 文件放在同一目录下） -->
+  <link rel="icon" href="/static/brainatlas-logo.png" type="image/png" />
+  <style>
+    :root {
+      --bg-main: #050816;
+      --bg-elevated: #0b1220;
+      --bg-elevated-soft: #020617;
+      --border-soft: #1f2937;
+      --accent: #22d3ee;
+      --accent-soft: rgba(34, 211, 238, 0.18);
+      --accent-strong: #38bdf8;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --success: #4ade80;
+      --warning: #facc15;
+      --radius-lg: 18px;
+      --shadow-soft: 0 18px 45px rgba(0,0,0,0.55);
+      --transition-fast: 160ms ease-out;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+      background: radial-gradient(circle at 0% 0%, #0ea5e9 0, transparent 45%),
+                  radial-gradient(circle at 100% 100%, #6366f1 0, transparent 40%),
+                  var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+    }
+    .shell {
+      width: 100%;
+      max-width: 1120px;
+      margin: 32px 16px;
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(15,23,42,0.95), rgba(2,6,23,0.98));
+      box-shadow: var(--shadow-soft);
+      display: flex;
+      flex-direction: column;
+      border: 1px solid rgba(148,163,184,0.25);
+      overflow: hidden;
+      backdrop-filter: blur(18px);
+    }
+    header {
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(15,23,42,0.9);
+      background: linear-gradient(90deg, rgba(15,23,42,0.96), rgba(8,47,73,0.9));
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.95);
+      box-shadow: 0 0 18px rgba(56,189,248,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .brand-logo-img {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      display: block;
+    }
+    .brand-text-main {
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      font-size: 15px;
+    }
+    .brand-text-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    header .meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pill {
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: radial-gradient(circle at 0 0,rgba(34,211,238,0.08),transparent);
+    }
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(34,211,238,0.8);
+    }
+    main {
+      padding: 20px 22px 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.5fr);
+      gap: 18px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      border-radius: var(--radius-lg);
+      padding: 18px 18px 16px;
+      background: radial-gradient(circle at 0 0,rgba(56,189,248,0.1),transparent 55%),
+                  linear-gradient(145deg,var(--bg-elevated),var(--bg-elevated-soft));
+      border: 1px solid rgba(30,64,175,0.8);
+      box-shadow: 0 12px 35px rgba(15,23,42,0.75);
+      position: relative;
+      overflow: hidden;
+    }
+    .card-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title span.icon {
+      font-size: 17px;
+    }
+    .card-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .tag {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(148,163,184,0.35);
+      color: var(--text-muted);
+    }
+
+    .drop-zone {
+      border-radius: 14px;
+      border: 1px dashed rgba(148,163,184,0.6);
+      background: radial-gradient(circle at 50% 0,rgba(34,211,238,0.09),transparent 62%),
+                  rgba(15,23,42,0.85);
+      padding: 26px 18px;
+      text-align: center;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast), background 200ms ease-out;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .drop-zone::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% -20%, rgba(56,189,248,0.18), transparent 60%);
+      opacity: 0;
+      transition: opacity 200ms ease-out;
+      pointer-events: none;
+    }
+    .drop-zone.dragover {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(34,211,238,0.5), 0 0 45px rgba(56,189,248,0.5);
+      transform: translateY(-1px);
+    }
+    .drop-zone.dragover::before {
+      opacity: 1;
+    }
+    .drop-inner {
+      position: relative;
+      z-index: 1;
+    }
+    .drop-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 999px;
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 30% 20%, #e0f2fe, #0ea5e9);
+      box-shadow: 0 0 28px rgba(56,189,248,0.9);
+      color: #0b1120;
+      font-size: 26px;
+      position: relative;
+      overflow: hidden;
+    }
+    .drop-icon::after {
+      content: "";
+      position: absolute;
+      inset: 7px;
+      border-radius: inherit;
+      border: 1px solid rgba(15,23,42,0.85);
+      box-shadow: inset 0 0 18px rgba(15,23,42,0.9);
+    }
+    .drop-title {
+      font-size: 15px;
+      margin-bottom: 4px;
+    }
+    .drop-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .drop-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .btn {
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 12px;
+      border: 1px solid rgba(148,163,184,0.7);
+      background: linear-gradient(135deg,#0b1120,#020617);
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background var(--transition-fast), border-color var(--transition-fast), transform 120ms ease-out, box-shadow var(--transition-fast);
+    }
+    .btn-primary {
+      border-color: rgba(56,189,248,0.9);
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.25), transparent 55%),
+                  linear-gradient(135deg,#0ea5e9,#22c55e);
+      color: #0b1120;
+      font-weight: 500;
+      box-shadow: 0 0 22px rgba(56,189,248,0.75);
+    }
+    .btn-ghost {
+      background: rgba(15,23,42,0.9);
+    }
+    .btn:hover {
+      transform: translateY(-0.5px);
+      box-shadow: 0 8px 20px rgba(15,23,42,0.7);
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 28px rgba(56,189,248,0.95);
+    }
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: none;
+    }
+
+    .hint-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .hint-row span strong {
+      color: var(--accent-strong);
+      font-weight: 500;
+    }
+
+    .file-summary {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .summary-metric {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .summary-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(34,197,94,0.9);
+      box-shadow: 0 0 8px rgba(34,197,94,0.9);
+    }
+    .summary-dot.pending {
+      background: rgba(250,204,21,0.95);
+      box-shadow: 0 0 8px rgba(250,204,21,0.95);
+    }
+
+    .file-list {
+      max-height: 310px;
+      overflow-y: auto;
+      padding-right: 4px;
+      margin: 0;
+    }
+    .file-list::-webkit-scrollbar {
+      width: 6px;
+    }
+    .file-list::-webkit-scrollbar-thumb {
+      background: rgba(55,65,81,0.9);
+      border-radius: 999px;
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1.1fr);
+      column-gap: 10px;
+      padding: 9px 10px;
+      margin-bottom: 6px;
+      border-radius: 12px;
+      background: rgba(15,23,42,0.92);
+      border: 1px solid rgba(31,41,55,0.95);
+      transition: background var(--transition-fast), transform 120ms ease-out, border-color 160ms ease-out;
+      position: relative;
+      overflow: hidden;
+    }
+    .file-row::before {
+      content: "";
+      position: absolute;
+      inset-inline: -20%;
+      height: 1px;
+      top: 0;
+      background: linear-gradient(90deg,transparent,rgba(56,189,248,0.4),transparent);
+      opacity: 0;
+      transition: opacity 200ms ease-out;
+    }
+    .file-row:hover {
+      background: radial-gradient(circle at 0 0,rgba(56,189,248,0.14),transparent 60%),
+                  rgba(15,23,42,0.96);
+      transform: translateY(-0.5px);
+      border-color: rgba(55,65,81,0.9);
+    }
+    .file-row:hover::before {
+      opacity: 1;
+    }
+    .file-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+    .file-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #22d3ee, #0f766e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 17px;
+      box-shadow: 0 0 14px rgba(34,211,238,0.9);
+      flex-shrink: 0;
+    }
+    .file-meta {
+      min-width: 0;
+    }
+    .file-name {
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .file-detail {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .file-detail span + span::before {
+      content: "·";
+      margin: 0 5px;
+      color: rgba(148,163,184,0.7);
+    }
+
+    .file-status-col {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      justify-content: center;
+      align-items: flex-end;
+    }
+    .progress-shell {
+      width: 100%;
+      max-width: 230px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(31,41,55,0.9);
+      overflow: hidden;
+      position: relative;
+    }
+    .progress-bar span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg,#22d3ee,#22c55e);
+      box-shadow: 0 0 14px rgba(56,189,248,0.9);
+      transition: width 160ms linear, background 160ms ease-out;
+    }
+    .progress-bar[data-state="error"] span {
+      background: linear-gradient(90deg,#f97373,#f97316);
+      box-shadow: 0 0 14px rgba(248,113,113,0.92);
+    }
+    .progress-bar[data-state="success"] span {
+      background: linear-gradient(90deg,#22c55e,#4ade80);
+      box-shadow: 0 0 14px rgba(74,222,128,0.9);
+    }
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 3px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(55,65,81,0.9);
+      background: rgba(15,23,42,0.9);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--warning);
+      box-shadow: 0 0 7px rgba(250,204,21,0.9);
+    }
+    .status-dot.success {
+      background: var(--success);
+      box-shadow: 0 0 7px rgba(74,222,128,0.9);
+    }
+    .status-dot.error {
+      background: var(--danger);
+      box-shadow: 0 0 7px rgba(248,113,113,0.92);
+    }
+    .file-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .small-link {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 11px;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 2px;
+    }
+    .icon-button {
+      border-radius: 999px;
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(75,85,99,0.95);
+      background: rgba(15,23,42,0.95);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0;
+      transition: background var(--transition-fast), border-color var(--transition-fast), transform 100ms ease-out;
+    }
+    .icon-button:hover {
+      background: rgba(30,64,175,0.9);
+      border-color: rgba(148,163,184,1);
+      color: #e5e7eb;
+      transform: translateY(-0.5px);
+    }
+
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 12px;
+    }
+    .side-section-title {
+      font-size: 12px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .side-section {
+      padding: 12px 12px 10px;
+      border-radius: 14px;
+      background: rgba(15,23,42,0.98);
+      border: 1px solid rgba(31,41,55,0.95);
+    }
+    .side-stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .side-stat-label {
+      color: var(--text-muted);
+    }
+    .side-stat-value {
+      font-variant-numeric: tabular-nums;
+    }
+    .side-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .side-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(55,65,81,0.95);
+      background: rgba(15,23,42,0.98);
+    }
+    .controls-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/static/brainatlas-logo.png" alt="brainatlas logo" class="brand-logo-img" />
+        </div>
+        <div>
+          <div class="brand-text-main">BrainAtlas · 数据上传与任务管理</div>
+          <div class="brand-text-sub">基于小样本的动态脑图谱 · 多模态体数据入口</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="pill">
+          <span class="pill-dot"></span>
+          <span>mBrainAligner 驱动 · 小样本动态模板</span>
+        </div>
+        <span>BrainAtlas v1.0 · 数据入口</span>
+      </div>
+    </header>
+    <main>
+      <section class="card" aria-label="上传区域">
+        <div class="card-header">
+          <div>
+            <div class="card-title">
+              <span class="icon">🧠</span>
+              <span>上传多模态脑成像数据</span>
+            </div>
+            <div class="card-subtitle">支持拖拽 / 多文件 · 作为小样本动态模板构建的输入</div>
+          </div>
+          <span class="tag">Step 1 · 数据接入与登记</span>
+        </div>
+
+        <div id="dropZone" class="drop-zone">
+          <div class="drop-inner">
+            <div class="drop-icon">⬆️</div>
+            <div class="drop-title">将文件拖拽到此处</div>
+            <div class="drop-hint">或点击选择本地 fMOST / LSFM / MRI 等体数据文件</div>
+            <div class="drop-actions">
+              <button id="browseBtn" class="btn btn-primary">
+                <span>选择文件</span>
+              </button>
+              <button id="clearBtnTop" class="btn btn-ghost">
+                <span>清空列表</span>
+              </button>
+            </div>
+            <div class="hint-row">
+              <span>推荐格式：<strong>.v3draw / .nii / .nii.gz / .tif / .tiff / .mhd / .mha / .nrrd</strong></span>
+              <span>说明：上传后自动进入样本预处理（真实流程）</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="side-panel">
+        <div class="side-section">
+          <div class="side-section-title">任务概览</div>
+          <div class="side-stat-row">
+            <span class="side-stat-label">待上传文件数</span>
+            <span class="side-stat-value" id="statTotal">0</span>
+          </div>
+          <div class="side-stat-row">
+            <span class="side-stat-label">已成功</span>
+            <span class="side-stat-value" id="statSuccess">0</span>
+          </div>
+          <div class="side-stat-row">
+            <span class="side-stat-label">失败 / 需重试</span>
+            <span class="side-stat-value" id="statError">0</span>
+          </div>
+          <div class="side-stat-row">
+            <span class="side-stat-label">总上传体量</span>
+            <span class="side-stat-value" id="statSize">0 MB</span>
+          </div>
+          <div class="side-badges">
+            <span class="side-badge">小样本动态脑图谱构建 · 数据入口</span>
+            <span class="side-badge">预处理 / 配准 / 模板更新 · 本地部署</span>
+          </div>
+          <div class="controls-row">
+            <button id="startAllBtn" class="btn btn-primary" style="flex:1 1 auto;">
+              ▶ 提交全部任务
+            </button>
+            <button id="clearBtn" class="btn" style="flex:0 0 auto;">
+              ✕ 清空
+            </button>
+          </div>
+        </div>
+
+        <div class="side-section">
+          <div class="side-section-title">全局配准面板</div>
+          <div class="hint-row" style="margin:0 0 8px; justify-content:space-between;">
+            <span>真实流程</span>
+            <span id="registerStatus">待选择样本</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <select id="movingSample" style="width:100%; border-radius:999px; padding:7px 10px; background:rgba(15,23,42,0.96); border:1px solid rgba(55,65,81,0.9); color:var(--text-main);">
+              <option value="">选择 moving 样本</option>
+            </select>
+            <select id="fixedSample" style="width:100%; border-radius:999px; padding:7px 10px; background:rgba(15,23,42,0.96); border:1px solid rgba(55,65,81,0.9); color:var(--text-main);">
+              <option value="">选择 fixed 样本</option>
+            </select>
+          </div>
+          <div class="controls-row">
+            <button id="runGlobalBtn" class="btn btn-primary" style="flex:1 1 auto;">启动全局配准</button>
+            <button id="openViewerBtn" class="btn" style="flex:0 0 auto;">查看预览</button>
+          </div>
+        </div>
+
+        <div class="side-section" style="flex:1 1 auto; display:flex; flex-direction:column; min-height:220px;">
+          <div class="file-summary">
+            <span class="summary-metric">
+              <span class="summary-dot pending"></span>
+              <span id="summaryLabel">尚未添加文件</span>
+            </span>
+            <span class="summary-metric">
+              <span class="summary-dot"></span>
+              <span id="summaryProgress">0% 完成</span>
+            </span>
+          </div>
+          <div id="fileList" class="file-list">
+            <!-- 文件行将插入在此 -->
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <input id="fileInput" type="file" multiple accept=".v3draw,.nii,.nii.gz,.tif,.tiff,.mhd,.mha,.nrrd" style="display:none;" />
+
+  <script>
+    // 真实功能：前端接入后端上传、预处理、任务状态、全局配准接口。
+    const API = {
+      upload: "/api/upload",
+      prepare: (sampleId) => `/api/samples/${encodeURIComponent(sampleId)}/prepare`,
+      task: (taskId) => `/api/tasks/${encodeURIComponent(taskId)}`,
+      globalRegister: "/api/tasks/register/global"
+    };
+    const dropZone = document.getElementById("dropZone");
+    const fileInput = document.getElementById("fileInput");
+    const browseBtn = document.getElementById("browseBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const clearBtnTop = document.getElementById("clearBtnTop");
+    const startAllBtn = document.getElementById("startAllBtn");
+    const fileList = document.getElementById("fileList");
+    const movingSample = document.getElementById("movingSample");
+    const fixedSample = document.getElementById("fixedSample");
+    const runGlobalBtn = document.getElementById("runGlobalBtn");
+    const openViewerBtn = document.getElementById("openViewerBtn");
+    const registerStatus = document.getElementById("registerStatus");
+    const statTotal = document.getElementById("statTotal");
+    const statSuccess = document.getElementById("statSuccess");
+    const statError = document.getElementById("statError");
+    const statSize = document.getElementById("statSize");
+    const summaryLabel = document.getElementById("summaryLabel");
+    const summaryProgress = document.getElementById("summaryProgress");
+    const filesState = new Map();
+    let latestPreparedSampleId = "";
+    let latestTaskId = "";
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return "0 B";
+      const k = 1024;
+      const sizes = ["B", "KB", "MB", "GB", "TB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      const v = bytes / Math.pow(k, i);
+      return v.toFixed(v > 50 ? 0 : 1) + " " + sizes[i];
+    }
+
+    // 真实功能：文件类型识别，包含 .v3draw。
+    function detectType(name) {
+      const lower = name.toLowerCase();
+      if (lower.endsWith(".v3draw")) return { label: "Vaa3D 体数据", icon: "🧠" };
+      if (lower.endsWith(".nii") || lower.endsWith(".nii.gz")) return { label: "NIfTI 体数据", icon: "🧊" };
+      if (lower.endsWith(".tif") || lower.endsWith(".tiff")) return { label: "TIFF 切片栈", icon: "🖼️" };
+      if (lower.endsWith(".mhd") || lower.endsWith(".mha")) return { label: "MetaImage 体数据", icon: "📦" };
+      if (lower.endsWith(".nrrd")) return { label: "NRRD 体数据", icon: "📡" };
+      return { label: "通用/未识别格式", icon: "📄" };
+    }
+
+    function setEntryStatus(entry, text, state, percent) {
+      entry.statusText.textContent = text;
+      entry.progressBar.dataset.state = state;
+      if (typeof percent === "number") {
+        const p = Math.max(0, Math.min(100, Math.round(percent)));
+        entry.percentText.textContent = `${p}%`;
+        entry.progressFill.style.width = `${p}%`;
+      }
+      entry.status = state;
+      entry.retryBtn.style.display = state === "error" ? "inline-flex" : "none";
+      if (state === "success") {
+        entry.statusDot.className = "status-dot success";
+      } else if (state === "error") {
+        entry.statusDot.className = "status-dot error";
+      } else {
+        entry.statusDot.className = "status-dot";
+      }
+      updateStats();
+    }
+
+    function updateStats() {
+      let total = filesState.size;
+      let success = 0;
+      let error = 0;
+      let totalSize = 0;
+      filesState.forEach((entry) => {
+        totalSize += entry.file.size;
+        if (entry.status === "success") success += 1;
+        if (entry.status === "error") error += 1;
+      });
+      statTotal.textContent = total;
+      statSuccess.textContent = success;
+      statError.textContent = error;
+      statSize.textContent = totalSize ? formatBytes(totalSize) : "0 MB";
+      summaryLabel.textContent = total ? `已加入任务队列的文件：${total}` : "尚未添加文件";
+      summaryProgress.textContent = total ? `${Math.round((success / total) * 100)}% 完成` : "0% 完成";
+    }
+
+    function appendSampleOption(sampleId, filename) {
+      const text = `${filename} (${sampleId})`;
+      const option1 = document.createElement("option");
+      option1.value = sampleId;
+      option1.textContent = text;
+      const option2 = document.createElement("option");
+      option2.value = sampleId;
+      option2.textContent = text;
+      movingSample.appendChild(option1);
+      fixedSample.appendChild(option2);
+    }
+
+    // 真实功能：轮询任务状态，直到完成或失败。
+    async function pollTaskUntilDone(taskId, timeoutMs = 120000) {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const res = await fetch(API.task(taskId));
+        if (!res.ok) throw new Error("任务状态查询失败");
+        const task = await res.json();
+        if (task.status === "completed" || task.status === "failed") return task;
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
+      throw new Error("任务超时");
+    }
+
+    // 真实功能：单文件上传后自动触发 prepare 流程。
+    async function uploadOneToServer(id) {
+      const entry = filesState.get(id);
+      if (!entry) return;
+      setEntryStatus(entry, "上传中…", "uploading", 15);
+      const fd = new FormData();
+      fd.append("file", entry.file);
+      const uploadResp = await fetch(`${API.upload}?project_id=default`, { method: "POST", body: fd });
+      if (!uploadResp.ok) throw new Error("上传失败");
+      const uploadData = await uploadResp.json();
+      entry.sampleId = uploadData.sample_id;
+      setEntryStatus(entry, "已上传，准备预处理…", "uploading", 40);
+      const prepareResp = await fetch(API.prepare(uploadData.sample_id), { method: "POST" });
+      if (!prepareResp.ok) throw new Error("预处理启动失败");
+      const prepareTask = await prepareResp.json();
+      latestTaskId = prepareTask.task_id;
+      setEntryStatus(entry, "预处理中…", "uploading", 70);
+      const doneTask = await pollTaskUntilDone(prepareTask.task_id);
+      if (doneTask.status !== "completed") throw new Error("预处理失败");
+      latestPreparedSampleId = uploadData.sample_id;
+      appendSampleOption(uploadData.sample_id, uploadData.filename || entry.file.name);
+      setEntryStatus(entry, `完成 · sample_id=${uploadData.sample_id}`, "success", 100);
+    }
+
+    function createFileRow(file, id) {
+      const type = detectType(file.name);
+      const row = document.createElement("div");
+      row.className = "file-row";
+      row.dataset.id = id;
+      row.innerHTML = ""
+        + "<div class='file-main'>"
+        + `  <div class='file-icon'>${type.icon}</div>`
+        + "  <div class='file-meta'>"
+        + `    <div class='file-name' title='${file.name}'>${file.name}</div>`
+        + `    <div class='file-detail'><span>${type.label}</span><span>${formatBytes(file.size)}</span></div>`
+        + "  </div>"
+        + "</div>"
+        + "<div class='file-status-col'>"
+        + "  <div class='progress-shell'>"
+        + "    <div class='progress-bar' data-state='idle'><span></span></div>"
+        + "    <div class='progress-meta'>"
+        + "      <span class='status-pill'><span class='status-dot'></span><span class='status-text'>待上传</span></span>"
+        + "      <span class='percent-text'>0%</span>"
+        + "    </div>"
+        + "  </div>"
+        + "  <div class='file-actions'>"
+        + "    <button class='small-link preview-btn' style='display:none;'>查看预览</button>"
+        + "    <button class='small-link retry-btn' style='display:none;'>重试</button>"
+        + "    <button class='icon-button delete-btn' title='从任务列表移除'>✕</button>"
+        + "  </div>"
+        + "</div>";
+      const entry = {
+        id,
+        file,
+        row,
+        progressBar: row.querySelector(".progress-bar"),
+        progressFill: row.querySelector(".progress-bar span"),
+        statusText: row.querySelector(".status-text"),
+        statusDot: row.querySelector(".status-dot"),
+        percentText: row.querySelector(".percent-text"),
+        retryBtn: row.querySelector(".retry-btn"),
+        previewBtn: row.querySelector(".preview-btn"),
+        deleteBtn: row.querySelector(".delete-btn"),
+        status: "idle",
+        sampleId: ""
+      };
+      entry.deleteBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        filesState.delete(id);
+        row.remove();
+        updateStats();
+      });
+      entry.retryBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        try {
+          await uploadOneToServer(id);
+          entry.previewBtn.style.display = entry.sampleId ? "inline-flex" : "none";
+        } catch (error) {
+          setEntryStatus(entry, error.message || "上传失败", "error", 0);
+        }
+      });
+      entry.previewBtn.addEventListener("click", () => {
+        if (!entry.sampleId) return;
+        window.location.href = `/viewer?sample_id=${encodeURIComponent(entry.sampleId)}&task_id=${encodeURIComponent(latestTaskId)}`;
+      });
+      filesState.set(id, entry);
+      fileList.appendChild(row);
+      updateStats();
+    }
+
+    function addFiles(fileListInput) {
+      const list = Array.from(fileListInput || []);
+      list.forEach((file) => {
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        createFileRow(file, id);
+      });
+    }
+
+    // 真实功能：批量提交上传任务，仅保留一个 uploadAllToServer 定义。
+    async function uploadAllToServer() {
+      for (const [id, entry] of filesState.entries()) {
+        if (entry.status === "success") continue;
+        try {
+          await uploadOneToServer(id);
+          entry.previewBtn.style.display = entry.sampleId ? "inline-flex" : "none";
+        } catch (error) {
+          setEntryStatus(entry, error.message || "上传失败", "error", 0);
+        }
+      }
+    }
+
+    // 真实功能：使用 moving_sample_id / fixed_sample_id 发起全局配准。
+    async function runGlobalRegistration() {
+      const movingId = movingSample.value;
+      const fixedId = fixedSample.value;
+      if (!movingId || !fixedId) {
+        registerStatus.textContent = "请先选择 moving/fixed";
+        return;
+      }
+      registerStatus.textContent = "提交中…";
+      const payload = {
+        project_id: "default",
+        moving_sample_id: movingId,
+        fixed_sample_id: fixedId
+      };
+      const res = await fetch(API.globalRegister, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        registerStatus.textContent = "配准提交失败";
+        return;
+      }
+      const task = await res.json();
+      latestTaskId = task.task_id;
+      registerStatus.textContent = `任务完成：${task.task_id}`;
+    }
+
+    function clearAll() {
+      filesState.clear();
+      fileList.innerHTML = "";
+      movingSample.innerHTML = "<option value=''>选择 moving 样本</option>";
+      fixedSample.innerHTML = "<option value=''>选择 fixed 样本</option>";
+      registerStatus.textContent = "待选择样本";
+      updateStats();
+    }
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    dropZone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", (e) => {
+      if (e.target === dropZone) dropZone.classList.remove("dragover");
+    });
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+    });
+    browseBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files && fileInput.files.length) {
+        addFiles(fileInput.files);
+        fileInput.value = "";
+      }
+    });
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAll();
+    });
+    clearBtnTop.addEventListener("click", (e) => {
+      e.stopPropagation();
+      clearAll();
+    });
+    startAllBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      uploadAllToServer();
+    });
+    runGlobalBtn.addEventListener("click", () => runGlobalRegistration());
+    openViewerBtn.addEventListener("click", () => {
+      if (!latestPreparedSampleId) {
+        registerStatus.textContent = "暂无可查看预览的样本";
+        return;
+      }
+      window.location.href = `/viewer?sample_id=${encodeURIComponent(latestPreparedSampleId)}&task_id=${encodeURIComponent(latestTaskId)}`;
+    });
+  </script>
+</body>
+</html>
