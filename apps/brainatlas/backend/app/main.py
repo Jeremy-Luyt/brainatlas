@@ -1,3 +1,5 @@
+import mimetypes
+
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -13,6 +15,9 @@ from .routes.tasks import router as tasks_router
 from .routes.upload import router as upload_router
 from .utils.paths import data_root
 
+# 修正 Windows 上 .gz 的 MIME 类型，确保 NiiVue 能识别体数据
+mimetypes.add_type("application/gzip", ".gz")
+mimetypes.add_type("application/octet-stream", ".nii")
 
 app = FastAPI(title="BrainAtlas API", version="0.1.0")
 app.include_router(health_router, prefix="/api")

@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>BrainAtlas · 三维脑图谱浏览器</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- 使用相同 logo 作为浏览器标签页图标 -->
   <link rel="icon" href="/static/brainatlas-logo.png" type="image/png" />
   <style>
     :root {
@@ -60,16 +59,6 @@
       position: relative;
       overflow: hidden;
     }
-    .panel::before {
-      content: "";
-      position: absolute;
-      inset-inline: -30%;
-      top: -1px;
-      height: 1px;
-      background: linear-gradient(90deg,transparent,rgba(56,189,248,0.7),transparent);
-      opacity: 0.4;
-      pointer-events: none;
-    }
     .panel-header {
       display: flex;
       align-items: center;
@@ -83,156 +72,25 @@
       align-items: center;
       gap: 8px;
     }
-    .panel-title span.icon {
-      font-size: 17px;
-    }
     .panel-subtitle {
       font-size: 11px;
       color: var(--text-muted);
       margin-top: 2px;
     }
-    .pill {
-      padding: 3px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.6);
-      background: rgba(15,23,42,0.95);
-      font-size: 11px;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text-muted);
-    }
-    .pill-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: var(--accent);
-      box-shadow: 0 0 8px rgba(34,211,238,0.9);
-    }
-
     .panel-body {
       flex: 1 1 auto;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      overflow-y: auto;
     }
-
     .field-label {
       font-size: 11px;
       color: var(--text-muted);
       margin-bottom: 4px;
     }
     .field-group {
-      margin-bottom: 6px;
-    }
-    .input-shell {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    .input-text {
-      width: 100%;
-      border-radius: 999px;
-      border: 1px solid rgba(55,65,81,0.9);
-      background: rgba(15,23,42,0.96);
-      color: var(--text-main);
-      font-size: 12px;
-      padding: 7px 30px 7px 10px;
-      outline: none;
-      transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background 160ms ease-out;
-    }
-    .input-text::placeholder {
-      color: rgba(148,163,184,0.8);
-    }
-    .input-text:focus {
-      border-color: rgba(56,189,248,0.9);
-      box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
-      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.12), transparent 60%),
-                  rgba(15,23,42,0.98);
-    }
-    .input-icon {
-      position: absolute;
-      right: 9px;
-      font-size: 14px;
-      color: rgba(148,163,184,0.9);
-      pointer-events: none;
-    }
-
-    select {
-      width: 100%;
-      border-radius: 999px;
-      border: 1px solid rgba(55,65,81,0.9);
-      background: rgba(15,23,42,0.96);
-      color: var(--text-main);
-      font-size: 12px;
-      padding: 6px 10px;
-      outline: none;
-    }
-    select:focus {
-      border-color: rgba(56,189,248,0.9);
-      box-shadow: 0 0 0 1px rgba(56,189,248,0.35);
-    }
-
-    .search-results {
-      margin-top: 4px;
-      border-radius: 12px;
-      border: 1px solid rgba(31,41,55,0.95);
-      background: rgba(15,23,42,0.98);
-      max-height: 160px;
-      overflow-y: auto;
-      font-size: 12px;
-    }
-    .search-empty {
-      padding: 6px 9px;
-      color: var(--text-muted);
-    }
-    .result-item {
-      padding: 6px 9px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: pointer;
-      transition: background var(--transition-fast);
-    }
-    .result-item:hover {
-      background: rgba(30,64,175,0.85);
-    }
-    .result-name-main {
-      font-size: 12px;
-    }
-    .result-name-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    .badge {
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.6);
-      font-size: 10px;
-      color: var(--text-muted);
-    }
-
-    .legend {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 4px;
-      font-size: 11px;
-    }
-    .legend-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 6px;
-      border-radius: 999px;
-      background: rgba(15,23,42,0.96);
-      border: 1px solid rgba(55,65,81,0.95);
-    }
-    .legend-swatch {
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
+      margin-bottom: 10px;
     }
 
     .viewer-panel {
@@ -251,11 +109,6 @@
       position: relative;
       z-index: 2;
     }
-    .viewer-header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
     .viewer-title {
       font-size: 14px;
       font-weight: 500;
@@ -263,83 +116,104 @@
       align-items: center;
       gap: 8px;
     }
-    .viewer-title .sphere {
-      width: 20px;
-      height: 20px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 20%, #e0f2fe,#0ea5e9);
-      box-shadow: 0 0 18px rgba(56,189,248,0.9);
-    }
-    .viewer-subtitle {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .viewer-header-right {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 11px;
-    }
-    .btn {
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.7);
-      background: rgba(15,23,42,0.96);
-      color: var(--text-main);
-      font-size: 11px;
-      padding: 4px 10px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: background var(--transition-fast), border-color var(--transition-fast), transform 100ms ease-out, box-shadow var(--transition-fast);
-    }
-    .btn-primary {
-      border-color: rgba(56,189,248,0.9);
-      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.18), transparent 60%),
-                  linear-gradient(135deg,#0ea5e9,#22c55e);
-      color: #020617;
-      font-weight: 500;
-      box-shadow: 0 0 22px rgba(56,189,248,0.8);
-    }
-    .btn:hover {
-      transform: translateY(-0.5px);
-      box-shadow: 0 8px 20px rgba(15,23,42,0.7);
-    }
-    .btn:active {
-      transform: translateY(0);
-      box-shadow: none;
-    }
-
     .viewer-main {
       position: relative;
       flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      min-height: 0; /* 关键：允许 flex 子元素缩小 */
     }
-    #viewerCanvas {
+    
+    #niivue-container {
+      flex: 1 1 auto; /* 占据剩余空间 */
+      position: relative;
+      width: 100%;
+      min-height: 300px; /* 保证 NiiVue 有最小高度 */
+    }
+    #canvas {
       width: 100%;
       height: 100%;
       display: block;
     }
-    .corner-info {
+
+    .slice-controls {
       position: absolute;
-      left: 10px;
-      bottom: 10px;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(15,23,42,0.85);
+      border: 1px solid var(--border-soft);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 10;
+      width: 180px;
+    }
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .control-header {
+      display: flex;
+      justify-content: space-between;
       font-size: 11px;
       color: var(--text-muted);
-      background: rgba(15,23,42,0.88);
-      border-radius: 999px;
-      padding: 3px 9px;
-      border: 1px solid rgba(31,41,55,0.95);
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      pointer-events: none;
     }
-    .corner-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 999px;
-      background: #22c55e;
-      box-shadow: 0 0 7px rgba(34,197,94,0.95);
+    .slider {
+      width: 100%;
+      height: 4px;
+      background: var(--border-soft);
+      border-radius: 2px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--accent);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 8px;
+      padding: 10px;
+      background: rgba(15,23,42,0.8);
+      border-top: 1px solid var(--border-soft);
+      flex: 0 0 120px; /* 固定高度，不缩放 */
+    }
+    .preview-item {
+      height: 100px;
+      border: 1px solid var(--border-soft);
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+      background: #000;
+    }
+    .preview-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* 改为 contain 避免裁剪 */
+      display: block;
+    }
+    .preview-label {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      font-size: 9px;
+      color: #fff;
+      text-shadow: 0 0 2px #000;
+      background: rgba(0,0,0,0.4);
+      padding: 1px 3px;
+      border-radius: 3px;
     }
 
     .info-panel {
@@ -349,736 +223,337 @@
       gap: 10px;
     }
     .info-section {
-      padding: 9px 10px 8px;
+      padding: 12px;
       border-radius: 12px;
       background: rgba(15,23,42,0.98);
-      border: 1px solid rgba(31,41,55,0.95);
-    }
-    .info-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
+      border: 1px solid var(--border-soft);
     }
     .info-title {
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .info-badge {
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(148,163,184,0.6);
-      background: rgba(15,23,42,0.96);
-      color: var(--text-muted);
-    }
-    .info-name {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 600;
-      margin-bottom: 2px;
+      margin-bottom: 8px;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border-soft);
+      padding-bottom: 4px;
     }
-    .info-name-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px 10px;
-      margin-top: 4px;
+    .info-item {
+      margin-bottom: 6px;
     }
     .info-label {
       font-size: 11px;
       color: var(--text-muted);
     }
     .info-value {
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.7);
+      background: rgba(15,23,42,0.96);
+      color: var(--text-main);
       font-size: 11px;
-      font-variant-numeric: tabular-nums;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.2s;
     }
-    .info-desc {
-      margin-top: 4px;
-      font-size: 11px;
-      color: var(--text-muted);
-      line-height: 1.4;
-    }
-    .version-diff {
-      margin-top: 4px;
-      font-size: 11px;
-    }
-    .version-diff span.delta-pos {
-      color: var(--accent-3);
-    }
-    .version-diff span.delta-neg {
-      color: var(--danger);
+    .btn-primary {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
   <div class="layout">
+    <!-- 左侧面板：控制与检索 -->
     <section class="panel">
       <div class="panel-header">
-        <div>
-          <div class="panel-title">
-            <span class="icon">🔍</span>
-            <span>结果控制栏 + 未来功能示意</span>
-          </div>
-          <div class="panel-subtitle">保留原交互能力，统一标注 Demo / Mock Data / 规划中</div>
-        </div>
-        <div class="pill">
-          <span class="pill-dot"></span>
-          <span>Demo · Mock Data</span>
-        </div>
+        <div class="panel-title"><span>🔍</span> 视图控制</div>
       </div>
-
       <div class="panel-body">
         <div class="field-group">
-          <div class="field-label">脑区关键词检索</div>
-          <div class="input-shell">
-            <input id="searchInput" class="input-text" type="text" placeholder="输入中文名称，如“皮层 / 小脑 / 海马”等…" />
-            <span class="input-icon">⌕</span>
-          </div>
-          <div id="searchResults" class="search-results">
-            <div class="search-empty">在上方输入关键字以检索脑区…</div>
-          </div>
-          <div class="field-label" style="margin-top:4px;">Mock Data · Coming Soon</div>
-        </div>
-
-        <div class="field-group">
-          <div class="field-label">图谱版本切换</div>
-          <select id="versionSelect">
-            <option value="v1">版本 v1 · Demo</option>
-            <option value="v2">版本 v2 · 规划中</option>
-            <option value="v3">版本 v3 · Coming Soon</option>
+          <div class="field-label">显示模式</div>
+          <select id="viewMode">
+            <option value="0">Axial (轴状面)</option>
+            <option value="1">Coronal (冠状面)</option>
+            <option value="2">Sagittal (矢状面)</option>
+            <option value="3">Multi-Planar (多平面)</option>
+            <option value="4">3D Render (三维渲染)</option>
           </select>
         </div>
-
         <div class="field-group">
-          <div class="field-label">图例（Mock 3D Atlas）</div>
-          <div class="legend">
-            <div class="legend-item">
-              <span class="legend-swatch" style="background: #22d3ee;"></span>
-              <span>大脑皮层</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch" style="background: #a855f7;"></span>
-              <span>小脑</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-swatch" style="background: #22c55e;"></span>
-              <span>海马</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <div class="field-label">未来功能示意区</div>
-          <div class="legend">
-            <div class="legend-item"><span>局部配准（规划中）</span></div>
-            <div class="legend-item"><span>模板版本切换（规划中）</span></div>
-            <div class="legend-item"><span>三维脑图谱（Mock）</span></div>
-            <div class="legend-item"><span>脑区检索（Mock）</span></div>
-            <div class="legend-item"><span>QC 面板（规划中）</span></div>
-            <div class="legend-item"><span>模板演化时间线（规划中）</span></div>
-          </div>
+          <div class="field-label">颜色映射</div>
+          <select id="colorMap">
+            <option value="gray">Gray (灰度)</option>
+            <option value="red">Red</option>
+            <option value="green">Green</option>
+            <option value="blue">Blue</option>
+            <option value="hot">Hot</option>
+            <option value="jet">Jet</option>
+          </select>
         </div>
         <div class="field-group">
-          <div class="field-label">交互提示（Demo）</div>
-          <div style="font-size:11px; color:var(--text-muted); line-height:1.5;">
-            - 鼠标左键拖动：旋转三维脑模型<br/>
+          <div class="field-label">交互提示</div>
+          <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">
+            - 鼠标左键：切换切片<br/>
+            - 鼠标右键：调节亮度和对比度<br/>
             - 滚轮：缩放<br/>
-            - 右键拖动：平移<br/>
-            - 鼠标悬停：高亮当前脑区<br/>
-            - 鼠标点击：锁定并在右侧显示详细信息
+            - V 键：循环切换显示模式
           </div>
         </div>
       </div>
     </section>
 
+    <!-- 中间面板：NiiVue 主视图 -->
     <section class="viewer-panel panel">
       <div class="viewer-header">
-        <div class="viewer-header-left">
-          <div class="viewer-title">
-            <img src="/static/brainatlas-logo.png" alt="brainatlas logo" style="width:20px;height:20px;border-radius:999px;box-shadow:0 0 10px rgba(56,189,248,0.8);" />
-            <span>brainatlas · 真实预览与结果切换</span>
-          </div>
-          <div class="viewer-subtitle">真实主线：原图预览 / 全局配准结果（预留）</div>
+        <div class="viewer-title">
+          <img src="/static/brainatlas-logo.png" alt="logo" style="width:20px;height:20px;" />
+          <span id="header-sample-id">BrainAtlas Viewer</span>
         </div>
         <div class="viewer-header-right">
-          <button id="sourceModeBtn" class="btn btn-primary"><span>原图</span></button>
-          <button id="registeredModeBtn" class="btn"><span>全局配准结果</span></button>
+          <button id="reset-view" class="btn">重置视角</button>
         </div>
       </div>
+      
       <div class="viewer-main">
-        <div style="height:100%; display:flex; flex-direction:column; gap:10px; padding:10px;">
-          <div style="display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; flex:1 1 auto;">
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">xy</div>
-              <img id="preview_xy" alt="xy" style="width:100%; height:150px; object-fit:cover; display:block;" />
+        <div id="niivue-container">
+          <canvas id="canvas"></canvas>
+          
+          <!-- 切片控制滑块 -->
+          <div class="slice-controls" id="slice-controls">
+            <div class="control-item">
+              <div class="control-header"><span>X Slice</span><span id="x-val">0</span></div>
+              <input type="range" class="slider" id="x-slider" min="0" max="100" value="50">
             </div>
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">xz</div>
-              <img id="preview_xz" alt="xz" style="width:100%; height:150px; object-fit:cover; display:block;" />
+            <div class="control-item">
+              <div class="control-header"><span>Y Slice</span><span id="y-val">0</span></div>
+              <input type="range" class="slider" id="y-slider" min="0" max="100" value="50">
             </div>
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">yz</div>
-              <img id="preview_yz" alt="yz" style="width:100%; height:150px; object-fit:cover; display:block;" />
+            <div class="control-item">
+              <div class="control-header"><span>Z Slice</span><span id="z-val">0</span></div>
+              <input type="range" class="slider" id="z-slider" min="0" max="100" value="50">
             </div>
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">mip_xy</div>
-              <img id="preview_mip_xy" alt="mip_xy" style="width:100%; height:150px; object-fit:cover; display:block;" />
-            </div>
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">mip_xz</div>
-              <img id="preview_mip_xz" alt="mip_xz" style="width:100%; height:150px; object-fit:cover; display:block;" />
-            </div>
-            <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; overflow:hidden; background:#020617;">
-              <div style="font-size:11px; color:#9ca3af; padding:6px 8px;">mip_yz</div>
-              <img id="preview_mip_yz" alt="mip_yz" style="width:100%; height:150px; object-fit:cover; display:block;" />
-            </div>
-          </div>
-          <div style="border:1px solid rgba(31,41,55,0.95); border-radius:10px; background:#020617; min-height:160px; position:relative;">
-            <div style="font-size:11px; color:#9ca3af; padding:6px 8px; display:flex; justify-content:space-between;">
-              <span>Mock 3D Atlas</span>
-              <span>Demo · Mock Data · Coming Soon</span>
-            </div>
-            <div id="viewerCanvas" style="height:130px;"></div>
           </div>
         </div>
-        <div class="corner-info"><span class="corner-dot"></span><span id="cornerText">预览视图已就绪</span></div>
-      </div>      
+
+        <!-- 底部预览图层 -->
+        <div class="preview-grid">
+          <div class="preview-item"><span class="preview-label">XY</span><img id="prev-xy" src="" alt=""></div>
+          <div class="preview-item"><span class="preview-label">XZ</span><img id="prev-xz" src="" alt=""></div>
+          <div class="preview-item"><span class="preview-label">YZ</span><img id="prev-yz" src="" alt=""></div>
+          <div class="preview-item"><span class="preview-label">MIP XY</span><img id="prev-mip-xy" src="" alt=""></div>
+          <div class="preview-item"><span class="preview-label">MIP XZ</span><img id="prev-mip-xz" src="" alt=""></div>
+          <div class="preview-item"><span class="preview-label">MIP YZ</span><img id="prev-mip-yz" src="" alt=""></div>
+        </div>
+      </div>
     </section>
 
+    <!-- 右侧面板：样本详情 -->
     <section class="panel">
       <div class="panel-header">
-        <div>
-          <div class="panel-title">
-            <span class="icon">📊</span>
-            <span>样本信息与任务状态</span>
-          </div>
-          <div class="panel-subtitle">真实信息为主，示意信息明确标识</div>
-        </div>
+        <div class="panel-title"><span>📊</span> 样本详情</div>
       </div>
       <div class="info-panel">
         <div class="info-section">
-          <div class="info-header">
-            <span class="info-title">当前样本</span>
-            <span class="info-badge">真实数据</span>
+          <div class="info-title">基本信息</div>
+          <div class="info-item">
+            <div class="info-label">Sample ID</div>
+            <div class="info-value" id="info-id">-</div>
           </div>
-          <div class="info-name" id="sampleIdText">sample_id: -</div>
-          <div class="info-name-sub" id="fileNameText">filename: -</div>
-          <div class="info-grid" style="display:grid;">
-            <div>
-              <div class="info-label">input format</div>
-              <div class="info-value" id="inputFormatText">-</div>
-            </div>
-            <div>
-              <div class="info-label">converted format</div>
-              <div class="info-value" id="convertedFormatText">-</div>
-            </div>
-            <div>
-              <div class="info-label">image size</div>
-              <div class="info-value" id="imageSizeText">-</div>
-            </div>
-            <div>
-              <div class="info-label">prepare status</div>
-              <div class="info-value" id="prepareStatusText">-</div>
-            </div>
-            <div>
-              <div class="info-label">global registration status</div>
-              <div class="info-value" id="registerStatusText">-</div>
-            </div>
-            <div>
-              <div class="info-label">output path</div>
-              <div class="info-value" id="outputPathText">-</div>
-            </div>
+          <div class="info-item">
+            <div class="info-label">Filename</div>
+            <div class="info-value" id="info-filename">-</div>
           </div>
-          <div class="info-desc" id="logPathText">log path: -</div>
-          <div class="controls-row" style="margin-top:8px;">
-            <button id="refreshSampleBtn" class="btn" style="flex:1 1 auto;">刷新样本</button>
-            <button id="openLogBtn" class="btn" style="flex:1 1 auto;">日志入口</button>
+        </div>
+        
+        <div class="info-section">
+          <div class="info-title">数据统计</div>
+          <div class="info-item">
+            <div class="info-label">Shape (Z, Y, X)</div>
+            <div class="info-value" id="info-shape">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">DType / Range</div>
+            <div class="info-value" id="info-range">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Mean Intensity</div>
+            <div class="info-value" id="info-mean">-</div>
           </div>
         </div>
 
         <div class="info-section">
-          <div class="info-header">
-            <span class="info-title">中期报告示意模块</span>
-            <span class="info-badge">Demo / 规划中</span>
+          <div class="info-title">任务状态</div>
+          <div class="info-item">
+            <div class="info-label">Prepare Status</div>
+            <div class="info-value" id="info-prepare">-</div>
           </div>
-          <div class="info-desc">
-            本页保留 Mock 3D Atlas 和脑区交互，作为中期展示内容；真实交付主线为样本预览、样本状态、全局配准状态与结果路径。
+          <div class="info-item">
+            <div class="info-label">Registration</div>
+            <div class="info-value" id="info-reg">-</div>
           </div>
-          <div class="version-diff">
-            <div>· 局部配准：<strong>规划中</strong></div>
-            <div>· 脑区属性联动：<strong>Mock Data</strong></div>
-            <div>· QC 面板：<strong>Coming Soon</strong></div>
-          </div>
+        </div>
+
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button id="refresh-btn" class="btn btn-primary" style="flex:1;">刷新数据</button>
         </div>
       </div>
     </section>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+  <!-- NiiVue 脚本，使用更稳定的 jsdelivr CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@niivue/niivue@latest/dist/niivue.umd.js"></script>
   <script>
-    // 新增：真实功能，加载 URL 查询参数并拉取样本/任务信息。
     const query = new URLSearchParams(window.location.search);
-    const sampleId = query.get("sample_id") || "";
-    const taskId = query.get("task_id") || "";
-    let currentViewMode = "source";
-    const sourceModeBtn = document.getElementById("sourceModeBtn");
-    const registeredModeBtn = document.getElementById("registeredModeBtn");
-    const sampleIdText = document.getElementById("sampleIdText");
-    const fileNameText = document.getElementById("fileNameText");
-    const inputFormatText = document.getElementById("inputFormatText");
-    const convertedFormatText = document.getElementById("convertedFormatText");
-    const imageSizeText = document.getElementById("imageSizeText");
-    const prepareStatusText = document.getElementById("prepareStatusText");
-    const registerStatusText = document.getElementById("registerStatusText");
-    const outputPathText = document.getElementById("outputPathText");
-    const logPathText = document.getElementById("logPathText");
-    const refreshSampleBtn = document.getElementById("refreshSampleBtn");
-    const openLogBtn = document.getElementById("openLogBtn");
-    const previewImgMap = {
-      xy: document.getElementById("preview_xy"),
-      xz: document.getElementById("preview_xz"),
-      yz: document.getElementById("preview_yz"),
-      mip_xy: document.getElementById("preview_mip_xy"),
-      mip_xz: document.getElementById("preview_mip_xz"),
-      mip_yz: document.getElementById("preview_mip_yz")
-    };
+    const sampleId = query.get("sample_id");
+    
+    // 初始化 NiiVue
+    const nv = new niivue.Niivue({
+      loadingText: '正在加载体数据...',
+      backColor: [0, 0, 0, 1],
+      show3Dcrosshair: true,
+      onLocationChange: handleLocationChange
+    });
+    // 确保 canvas 关联正确
+    nv.attachTo('canvas');
+
+    // UI 元素
+    const xSlider = document.getElementById('x-slider');
+    const ySlider = document.getElementById('y-slider');
+    const zSlider = document.getElementById('z-slider');
+    const xVal = document.getElementById('x-val');
+    const yVal = document.getElementById('y-val');
+    const zVal = document.getElementById('z-val');
+
+    function handleLocationChange(data) {
+      // 当在 NiiVue 中点击切换切片时，同步更新滑块
+      const vox = data.vox; // [x, y, z]
+      if (!vox || vox.length < 3) return;
+      
+      xSlider.value = vox[0];
+      ySlider.value = vox[1];
+      zSlider.value = vox[2];
+      xVal.textContent = vox[0];
+      yVal.textContent = vox[1];
+      zVal.textContent = vox[2];
+    }
+
+    // 滑块事件
+    [xSlider, ySlider, zSlider].forEach((s, idx) => {
+      s.addEventListener('input', () => {
+        const vox = [
+          parseInt(xSlider.value),
+          parseInt(ySlider.value),
+          parseInt(zSlider.value)
+        ];
+        // 同步 NiiVue
+        nv.scene.crosshairPos = nv.vox2frac(vox);
+        nv.drawScene();
+        
+        xVal.textContent = xSlider.value;
+        yVal.textContent = ySlider.value;
+        zVal.textContent = zSlider.value;
+      });
+    });
+
+    // 视图模式切换
+    document.getElementById('viewMode').addEventListener('change', (e) => {
+      nv.setSliceType(parseInt(e.target.value));
+    });
+
+    // 颜色映射切换
+    document.getElementById('colorMap').addEventListener('change', (e) => {
+      if (nv.volumes && nv.volumes.length > 0) {
+        nv.volumes[0].colormap = e.target.value;
+        nv.updateGLVolume();
+      }
+    });
+
+    document.getElementById('reset-view').addEventListener('click', () => {
+      nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
+    });
 
     async function loadSample() {
-      if (!sampleId) return;
-      const resp = await fetch(`/api/samples/${encodeURIComponent(sampleId)}`);
-      if (!resp.ok) return;
-      const sample = await resp.json();
-      sampleIdText.textContent = `sample_id: ${sample.sample_id || "-"}`;
-      fileNameText.textContent = `filename: ${sample.filename || "-"}`;
-      inputFormatText.textContent = sample.input_format || "-";
-      convertedFormatText.textContent = sample.converted_format || "-";
-      imageSizeText.textContent = sample.image_size || "-";
-      prepareStatusText.textContent = sample.prepare_status || "-";
-      registerStatusText.textContent = sample.global_registration_status || "-";
-      outputPathText.textContent = sample.output_path || "-";
-      logPathText.textContent = `log path: ${sample.log_path || "-"}`;
-      const previews = sample.preview_paths || {};
-      Object.keys(previewImgMap).forEach((k) => {
-        previewImgMap[k].src = previews[k] || "";
-      });
-    }
-
-    async function loadTask() {
-      if (!taskId) return;
-      const taskResp = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`);
-      if (taskResp.ok) {
-        const task = await taskResp.json();
-        registerStatusText.textContent = task.status || registerStatusText.textContent;
+      if (!sampleId) {
+        console.warn("未指定 sample_id，请检查 URL 参数");
+        return;
       }
-    }
 
-    sourceModeBtn.addEventListener("click", () => {
-      currentViewMode = "source";
-      sourceModeBtn.classList.add("btn-primary");
-      registeredModeBtn.classList.remove("btn-primary");
-      document.getElementById("cornerText").textContent = "当前模式：原图";
-    });
-    registeredModeBtn.addEventListener("click", () => {
-      currentViewMode = "registered";
-      sourceModeBtn.classList.remove("btn-primary");
-      registeredModeBtn.classList.add("btn-primary");
-      // 后续预留：当前仅保留全局配准结果模式状态位，等待真实结果接入。
-      document.getElementById("cornerText").textContent = "当前模式：全局配准结果（预留）";
-    });
-    refreshSampleBtn.addEventListener("click", async () => {
-      await loadSample();
-      await loadTask();
-    });
-    openLogBtn.addEventListener("click", () => {
-      alert(logPathText.textContent.replace("log path: ", "") || "暂无日志路径");
-    });
+      try {
+        const resp = await fetch(`/api/samples/${sampleId}`);
+        if (!resp.ok) throw new Error("无法获取样本信息");
+        const sample = await resp.json();
 
-    // 新增：Mock 功能，保留原 Three.js 交互用于中期示意展示。
-    const container = document.getElementById('viewerCanvas');
-    const scene = new THREE.Scene();
-    scene.background = null;
+        // 更新 UI 信息
+        document.getElementById('header-sample-id').textContent = `Sample: ${sample.sample_id}`;
+        document.getElementById('info-id').textContent = sample.sample_id;
+        document.getElementById('info-filename').textContent = sample.filename;
+        document.getElementById('info-prepare').textContent = sample.prepare_status;
+        document.getElementById('info-reg').textContent = sample.global_registration_status;
 
-    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-    camera.position.set(0, 1.4, 4.2);
+        if (sample.stats) {
+          document.getElementById('info-shape').textContent = sample.stats.shape.join(' × ');
+          document.getElementById('info-range').textContent = `${sample.stats.dtype} (${sample.stats.min} - ${sample.stats.max})`;
+          document.getElementById('info-mean').textContent = parseFloat(sample.stats.mean).toFixed(2);
+        }
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio || 1);
-    container.appendChild(renderer.domElement);
+        // 加载预览图
+        if (sample.preview && sample.preview.preview_urls) {
+          const urls = sample.preview.preview_urls;
+          // 确保 URL 是正确的
+          document.getElementById('prev-xy').src = urls.xy || '';
+          document.getElementById('prev-xz').src = urls.xz || '';
+          document.getElementById('prev-yz').src = urls.yz || '';
+          document.getElementById('prev-mip-xy').src = urls.mip_xy || '';
+          document.getElementById('prev-mip-xz').src = urls.mip_xz || '';
+          document.getElementById('prev-mip-yz').src = urls.mip_yz || '';
+          console.log("PNG 预览图已加载:", urls);
+        }
 
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.rotateSpeed = 0.85;
-    controls.zoomSpeed = 0.9;
-    controls.panSpeed = 0.7;
-    controls.minDistance = 2.0;
-    controls.maxDistance = 7.0;
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.45);
-    scene.add(ambient);
-    const dir1 = new THREE.DirectionalLight(0xffffff, 0.65);
-    dir1.position.set(5, 8, 6);
-    scene.add(dir1);
-    const dir2 = new THREE.PointLight(0x22d3ee, 0.45, 10);
-    dir2.position.set(-3, -2, 4);
-    scene.add(dir2);
-
-    const brainGroup = new THREE.Group();
-    scene.add(brainGroup);
-
-    const regions = [];
-
-    function createRegion(config) {
-      const material = new THREE.MeshStandardMaterial({
-        color: config.baseColor,
-        metalness: 0.15,
-        roughness: 0.35,
-        transparent: true,
-        opacity: 0.95
-      });
-      const mesh = new THREE.Mesh(config.geometry, material);
-      mesh.position.copy(config.position);
-      mesh.userData = {
-        id: config.id,
-        name: config.name,
-        alias: config.alias,
-        coords: config.coords,
-        description: config.description,
-        metrics: config.metrics,
-        markers: config.markers || []
-      };
-      brainGroup.add(mesh);
-      regions.push(mesh);
-    }
-
-    const cortexGeom = new THREE.SphereGeometry(1.15, 48, 48);
-    const cereGeom  = new THREE.SphereGeometry(0.55, 36, 36);
-    const hippoGeom = new THREE.SphereGeometry(0.4, 36, 36);
-
-    createRegion({
-      id: 'cortex',
-      name: '大脑皮层',
-      alias: 'Cortex',
-      geometry: cortexGeom,
-      position: new THREE.Vector3(0, 0.12, 0),
-      baseColor: new THREE.Color('#22d3ee'),
-      coords: [12.0, 18.5, 9.3],
-      description: '覆盖整个大脑表面的高级中枢，参与感觉、运动、认知与决策等多种功能，是多数任务配准和功能定位的主要参考区域。',
-      metrics: {
-        v1: { volume: 1.00, delta: 0.00, scale: 1.00, color: '#22d3ee' },
-        v2: { volume: 1.04, delta: +0.04, scale: 1.02, color: '#38bdf8' },
-        v3: { volume: 0.98, delta: -0.02, scale: 0.99, color: '#0ea5e9' }
-      },
-      markers: ['Slc17a7', 'Cux2']
-    });
-
-    createRegion({
-      id: 'cerebellum',
-      name: '小脑',
-      alias: 'Cerebellum',
-      geometry: cereGeom,
-      position: new THREE.Vector3(0, -0.95, -0.28),
-      baseColor: new THREE.Color('#a855f7'),
-      coords: [4.8, -7.2, -5.1],
-      description: '负责精细运动协调与姿势调节，在多模态成像中常作为质量控制和配准稳健性的重要参考区域。',
-      metrics: {
-        v1: { volume: 1.00, delta: 0.00, scale: 1.00, color: '#a855f7' },
-        v2: { volume: 0.96, delta: -0.04, scale: 0.97, color: '#c084fc' },
-        v3: { volume: 0.99, delta: -0.01, scale: 0.99, color: '#7c3aed' }
-      },
-      markers: ['Calb1', 'Gabra6']
-    });
-
-    createRegion({
-      id: 'hippocampus',
-      name: '海马',
-      alias: 'Hippocampus',
-      geometry: hippoGeom,
-      position: new THREE.Vector3(-0.75, -0.15, 0.55),
-      baseColor: new THREE.Color('#22c55e'),
-      coords: [-5.3, -3.2, 6.4],
-      description: '参与记忆形成与空间导航，对长程神经环路追踪和功能-结构对应关系研究尤为关键。',
-      metrics: {
-        v1: { volume: 1.00, delta: 0.00, scale: 1.00, color: '#22c55e' },
-        v2: { volume: 1.08, delta: +0.08, scale: 1.06, color: '#4ade80' },
-        v3: { volume: 1.03, delta: +0.03, scale: 1.03, color: '#16a34a' }
-      },
-      markers: ['Prox1', 'Gad1']
-    });
-
-    let hoveredRegion = null;
-    let selectedRegion = null;
-    let currentVersion = 'v1';
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    function applyVersionToRegions(version) {
-      regions.forEach(mesh => {
-        const m = mesh.userData.metrics[version];
-        if (!m) return;
-        mesh.scale.set(m.scale, m.scale, m.scale);
-        mesh.material.color.set(m.color);
-        mesh.material.opacity = 0.95;
-      });
-      if (selectedRegion) {
-        updateInfoPanel(selectedRegion);
-      }
-    }
-
-    function resetHighlight(mesh) {
-      if (!mesh) return;
-      const m = mesh.userData.metrics[currentVersion];
-      if (m) {
-        mesh.material.emissive = new THREE.Color(0x000000);
-        mesh.material.opacity = 0.95;
-      }
-    }
-
-    function highlightRegion(mesh, isHovered, isSelected) {
-      if (!mesh) return;
-      const baseEmissive = isSelected ? new THREE.Color(0xffffff) : (isHovered ? new THREE.Color(0x22d3ee) : new THREE.Color(0x000000));
-      mesh.material.emissive = baseEmissive;
-      mesh.material.emissiveIntensity = isSelected ? 0.6 : (isHovered ? 0.35 : 0.0);
-      mesh.material.opacity = isSelected ? 1.0 : (isHovered ? 1.0 : 0.95);
-    }
-
-    const cornerText = document.getElementById('cornerText');
-
-    function updateCornerText() {
-      if (!selectedRegion) {
-        cornerText.textContent = hoveredRegion
-          ? ('预览脑区：' + hoveredRegion.userData.name + ' · 单击以锁定')
-          : '无选中脑区 · 悬停以预览 · 单击以锁定';
-      } else {
-        cornerText.textContent = '当前选中：' + selectedRegion.userData.name + ' · 按住左键旋转 · 右键平移 · 滚轮缩放';
-      }
-    }
-
-    function onPointerMove(event) {
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(regions, false);
-
-      if (intersects.length > 0) {
-        const mesh = intersects[0].object;
-        if (hoveredRegion !== mesh) {
-          if (hoveredRegion && hoveredRegion !== selectedRegion) {
-            resetHighlight(hoveredRegion);
+        // 加载 NIfTI
+        if (sample.converted && sample.converted.nii_url) {
+          console.log("正在通过 NiiVue 加载体数据:", sample.converted.nii_url);
+          const volumeList = [
+            {
+              url: sample.converted.nii_url,
+              colormap: "gray",
+              opacity: 1,
+              visible: true,
+            }
+          ];
+          await nv.loadVolumes(volumeList);
+          
+          // 设置滑块范围
+          if (nv.volumes && nv.volumes.length > 0) {
+            const dims = nv.volumes[0].dims; // [?, x, y, z]
+            xSlider.max = dims[1] - 1;
+            ySlider.max = dims[2] - 1;
+            zSlider.max = dims[3] - 1;
+            
+            // 初始位置设为中心
+            const mid = [Math.floor(dims[1]/2), Math.floor(dims[2]/2), Math.floor(dims[3]/2)];
+            nv.scene.crosshairPos = nv.vox2frac(mid);
+            handleLocationChange({vox: mid});
           }
-          hoveredRegion = mesh;
-          if (hoveredRegion !== selectedRegion) {
-            highlightRegion(hoveredRegion, true, false);
-          }
-          updateCornerText();
+          
+          nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
+        } else {
+          console.warn("未找到 nii_url，无法加载体数据");
         }
-      } else {
-        if (hoveredRegion && hoveredRegion !== selectedRegion) {
-          resetHighlight(hoveredRegion);
-        }
-        hoveredRegion = null;
-        updateCornerText();
+
+      } catch (err) {
+        console.error("加载样本数据失败:", err);
       }
     }
 
-    function onClick(event) {
-      if (hoveredRegion) {
-        if (selectedRegion && selectedRegion !== hoveredRegion) {
-          resetHighlight(selectedRegion);
-        }
-        selectedRegion = hoveredRegion;
-        highlightRegion(selectedRegion, false, true);
-        updateInfoPanel(selectedRegion);
-        updateCornerText();
-      }
-    }
+    document.getElementById('refresh-btn').addEventListener('click', loadSample);
 
-    renderer.domElement.addEventListener('pointermove', onPointerMove);
-    renderer.domElement.addEventListener('click', onClick);
-
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
-    const versionSelect = document.getElementById('versionSelect');
-    const resetViewBtn = { addEventListener() {} };
-    const focusSelectedBtn = { addEventListener() {} };
-
-    const infoName = { textContent: "" };
-    const infoAlias = { textContent: "" };
-    const infoGrid = { style: { display: "none" } };
-    const infoCoords = { textContent: "" };
-    const infoVersion = { textContent: "" };
-    const infoVolume = { textContent: "" };
-    const infoDelta = { innerHTML: "" };
-    const infoDesc = { textContent: "" };
-    const infoMarkers = { textContent: "" };
-
-    function renderSearchResults(list, query) {
-      searchResults.innerHTML = '';
-      if (!query) {
-        const d = document.createElement('div');
-        d.className = 'search-empty';
-        d.textContent = '在上方输入关键字以检索脑区…';
-        searchResults.appendChild(d);
-        return;
-      }
-      if (!list.length) {
-        const d = document.createElement('div');
-        d.className = 'search-empty';
-        d.textContent = '未找到匹配的脑区，尝试使用其它关键字。';
-        searchResults.appendChild(d);
-        return;
-      }
-      list.forEach(region => {
-        const item = document.createElement('div');
-        item.className = 'result-item';
-        item.innerHTML = ''
-          + '<div>'
-          + '  <div class="result-name-main">' + region.userData.name + '</div>'
-          + '  <div class="result-name-sub">' + region.userData.alias + '</div>'
-          + '</div>'
-          + '<div class="badge">坐标 ' + region.userData.coords.map(v => v.toFixed(1)).join(', ') + '</div>';
-        item.addEventListener('click', () => {
-          selectRegion(region);
-        });
-        searchResults.appendChild(item);
-      });
-    }
-
-    function selectRegion(mesh) {
-      if (selectedRegion && selectedRegion !== mesh) {
-        resetHighlight(selectedRegion);
-      }
-      selectedRegion = mesh;
-      highlightRegion(selectedRegion, false, true);
-      updateInfoPanel(selectedRegion);
-      updateCornerText();
-      smoothFocusOnRegion(selectedRegion);
-    }
-
-    function updateInfoPanel(mesh) {
-      if (!mesh) {
-        infoName.textContent = '尚未选中脑区';
-        infoAlias.textContent = '请在中间三维视图中点击一个脑区，或在左侧搜索栏中选择。';
-        infoGrid.style.display = 'none';
-        infoCoords.textContent = '-';
-        infoVersion.textContent = '-';
-        infoVolume.textContent = '-';
-        infoDelta.innerHTML = '-';
-        infoMarkers.textContent = '-';
-        infoDesc.textContent = '';
-        return;
-      }
-      const d = mesh.userData;
-      const m = d.metrics[currentVersion];
-
-      infoName.textContent = d.name;
-      infoAlias.textContent = d.alias + ' · 小样本动态模板示例';
-      infoGrid.style.display = 'grid';
-
-      infoCoords.textContent = d.coords.map(v => v.toFixed(1)).join(', ');
-      infoVersion.textContent = currentVersion.toUpperCase();
-      infoVolume.textContent = m.volume.toFixed(2) + ' (相对)';
-      let deltaText = '';
-      if (Math.abs(m.delta) < 0.005) {
-        deltaText = '≈ 0 (与 v1 基本一致)';
-      } else if (m.delta > 0) {
-        deltaText = '+' + (m.delta*100).toFixed(1) + '% · <span class="delta-pos">略有扩张</span>';
-      } else {
-        deltaText = (m.delta*100).toFixed(1) + '% · <span class="delta-neg">略有收缩</span>';
-      }
-      infoDelta.innerHTML = deltaText;
-      infoMarkers.textContent = d.markers && d.markers.length ? d.markers.join(', ') : '—';
-      infoDesc.textContent = d.description;
-    }
-
-    function smoothFocusOnRegion(mesh) {
-      if (!mesh) return;
-      const target = mesh.position.clone();
-      const currentPos = camera.position.clone();
-      const dir = target.clone().sub(new THREE.Vector3(0,0,0)).normalize();
-      const distance = 3.5 * mesh.scale.length();
-      const desiredPos = dir.clone().multiplyScalar(distance + 1.8).add(new THREE.Vector3(0, 0.4, 0));
-
-      const startTime = performance.now();
-      const duration = 450;
-
-      function animateCamera(now) {
-        const t = Math.min(1, (now - startTime) / duration);
-        const eased = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
-        camera.position.lerpVectors(currentPos, desiredPos, eased);
-        controls.target.lerpVectors(controls.target.clone(), target, eased);
-        if (t < 1) {
-          requestAnimationFrame(animateCamera);
-        }
-      }
-      requestAnimationFrame(animateCamera);
-    }
-
-    function resetView() {
-      camera.position.set(0, 1.4, 4.2);
-      controls.target.set(0,0,0);
-    }
-
-    searchInput.addEventListener('input', () => {
-      const q = searchInput.value.trim();
-      if (!q) {
-        renderSearchResults([], '');
-        return;
-      }
-      const lower = q.toLowerCase();
-      const matched = regions.filter(mesh => {
-        const d = mesh.userData;
-        return d.name.toLowerCase().includes(lower) || d.alias.toLowerCase().includes(lower);
-      });
-      renderSearchResults(matched, lower);
-    });
-
-    versionSelect.addEventListener('change', () => {
-      currentVersion = versionSelect.value;
-      applyVersionToRegions(currentVersion);
-      updateCornerText();
-    });
-
-    resetViewBtn.addEventListener('click', () => {
-      resetView();
-    });
-
-    focusSelectedBtn.addEventListener('click', () => {
-      if (selectedRegion) smoothFocusOnRegion(selectedRegion);
-    });
-
-    function resizeRenderer() {
-      const rect = container.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-      renderer.setSize(width, height, false);
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
-    }
-    window.addEventListener('resize', resizeRenderer);
-    resizeRenderer();
-
-    applyVersionToRegions(currentVersion);
-    updateInfoPanel(null);
-    updateCornerText();
+    // 初始加载
     loadSample();
-    loadTask();
-
-    function animate() {
-      requestAnimationFrame(animate);
-      controls.update();
-      brainGroup.rotation.y += 0.0015;
-      renderer.render(scene, camera);
-    }
-    animate();
   </script>
 </body>
 </html>

@@ -32,31 +32,30 @@ def _suffix_label(file_name: str) -> str:
     return "unknown"
 
 
-def _samples_dir(project_id: str) -> Path:
-    path = project_workspace(project_id) / "samples"
+def _sample_dir(project_id: str, sample_id: str) -> Path:
+    path = project_workspace(project_id) / "samples" / sample_id
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def create_sample(project_id: str, original_filename: str, stored_path: Path) -> dict[str, Any]:
     sample_id = uuid4().hex[:12]
+    sample_dir = _sample_dir(project_id, sample_id)
     payload: dict[str, Any] = {
         "sample_id": sample_id,
         "project_id": project_id,
         "filename": original_filename,
         "input_format": _suffix_label(original_filename),
         "stored_path": str(stored_path),
-        "converted_format": None,
-        "image_size": None,
+        "converted": {},
+        "preview": {},
+        "stats": {},
         "prepare_status": "pending",
         "global_registration_status": "idle",
-        "output_path": None,
-        "log_path": None,
-        "preview_paths": {},
         "created_at": _now(),
         "updated_at": _now(),
     }
-    write_json(_samples_dir(project_id) / f"{sample_id}.json", payload)
+    write_json(sample_dir / "sample.json", payload)
     return payload
 
 
@@ -64,22 +63,26 @@ def _iter_sample_files() -> list[Path]:
     root = project_root() / "data" / "projects"
     if not root.exists():
         return []
-    return list(root.glob("*/samples/*.json"))
+    return list(root.glob("*/samples/*/sample.json"))
 
 
 def get_sample(sample_id: str) -> dict[str, Any] | None:
     for p in _iter_sample_files():
-        if p.stem == sample_id:
+        if p.parent.name == sample_id:
             return read_json(p)
     return None
 
 
 def update_sample(sample_id: str, updates: dict[str, Any]) -> dict[str, Any]:
     for p in _iter_sample_files():
-        if p.stem == sample_id:
+        if p.parent.name == sample_id:
             data = read_json(p)
             data.update(updates)
             data["updated_at"] = _now()
             write_json(p, data)
             return data
     raise KeyError(sample_id)
+
+
+def get_sample_dir(project_id: str, sample_id: str) -> Path:
+    return _sample_dir(project_id, sample_id)
