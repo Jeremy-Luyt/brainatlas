@@ -645,13 +645,14 @@
             <select id="movingSample" style="width:100%; border-radius:999px; padding:7px 10px; background:rgba(15,23,42,0.96); border:1px solid rgba(55,65,81,0.9); color:var(--text-main);">
               <option value="">选择 moving 样本</option>
             </select>
-            <select id="fixedSample" style="width:100%; border-radius:999px; padding:7px 10px; background:rgba(15,23,42,0.96); border:1px solid rgba(55,65,81,0.9); color:var(--text-main);">
-              <option value="">选择 fixed 样本</option>
-            </select>
+            <input type="hidden" id="fixedPath" value="E:\\workspace\\brainatlas\\tools\\templates\\25um_568" />
+            <div style="width:100%; border-radius:999px; padding:7px 10px; background:rgba(15,23,42,0.96); border:1px solid rgba(55,65,81,0.9); color:var(--text-main);">
+              Fixed 样本: CCFv3 (固定)
+            </div>
           </div>
           <div class="controls-row">
             <button id="runGlobalBtn" class="btn btn-primary" style="flex:1 1 auto;">启动全局配准</button>
-            <button id="openViewerBtn" class="btn" style="flex:0 0 auto;">查看预览</button>
+            <button id="goToViewerBtn" class="btn" style="flex:0 0 auto;" title="跳转到Viewer查看配准结果">→ Viewer</button>
           </div>
         </div>
 
@@ -692,9 +693,9 @@
     const startAllBtn = document.getElementById("startAllBtn");
     const fileList = document.getElementById("fileList");
     const movingSample = document.getElementById("movingSample");
-    const fixedSample = document.getElementById("fixedSample");
+    const fixedPath = document.getElementById("fixedPath");
     const runGlobalBtn = document.getElementById("runGlobalBtn");
-    const openViewerBtn = document.getElementById("openViewerBtn");
+    const goToViewerBtn = document.getElementById("goToViewerBtn");
     const registerStatus = document.getElementById("registerStatus");
     const statTotal = document.getElementById("statTotal");
     const statSuccess = document.getElementById("statSuccess");
@@ -766,14 +767,10 @@
 
     function appendSampleOption(sampleId, filename) {
       const text = `${filename} (${sampleId})`;
-      const option1 = document.createElement("option");
-      option1.value = sampleId;
-      option1.textContent = text;
-      const option2 = document.createElement("option");
-      option2.value = sampleId;
-      option2.textContent = text;
-      movingSample.appendChild(option1);
-      fixedSample.appendChild(option2);
+      const option = document.createElement("option");
+      option.value = sampleId;
+      option.textContent = text;
+      movingSample.appendChild(option);
     }
 
     // 真实功能：轮询任务状态，直到完成或失败。
@@ -809,6 +806,7 @@
       const doneTask = await pollTaskUntilDone(prepareTask.task_id);
       if (doneTask.status !== "completed") throw new Error("预处理失败");
       latestPreparedSampleId = uploadData.sample_id;
+      try { localStorage.setItem("brainatlas_last_sample_id", uploadData.sample_id); } catch (_) {}
       appendSampleOption(uploadData.sample_id, uploadData.filename || entry.file.name);
       setEntryStatus(entry, `完成 · sample_id=${uploadData.sample_id}`, "success", 100);
     }
@@ -900,39 +898,59 @@
       }
     }
 
-    // 真实功能：使用 moving_sample_id / fixed_sample_id 发起全局配准。
+    // 真实功能：使用 moving_sample_id / fixed_path 发起全局配准。
     async function runGlobalRegistration() {
       const movingId = movingSample.value;
-      const fixedId = fixedSample.value;
-      if (!movingId || !fixedId) {
-        registerStatus.textContent = "请先选择 moving/fixed";
+      const fixedPathValue = fixedPath.value;
+      if (!movingId) {
+        registerStatus.textContent = "请先选择 moving 样本";
         return;
       }
       registerStatus.textContent = "提交中…";
+      // 获取 moving sample 的详情
+      const sampleResp = await fetch(`/api/samples/${encodeURIComponent(movingId)}`);
+      if (!sampleResp.ok) {
+        registerStatus.textContent = "获取样本信息失败";
+        return;
+      }
+      const movingSampleData = await sampleResp.json();
+      if ((movingSampleData.filename || '').toLowerCase() === 'global.v3draw') {
+        registerStatus.textContent = "当前 moving 是 global.v3draw（配准结果），请改选原始样本（如 op_warp.v3draw）";
+        return;
+      }
       const payload = {
         project_id: "default",
         moving_sample_id: movingId,
-        fixed_sample_id: fixedId
+        moving_path: movingSampleData.stored_path,
+        fixed_path: fixedPathValue
       };
-      const res = await fetch(API.globalRegister, {
+      const res = await fetch("/api/registration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
-        registerStatus.textContent = "配准提交失败";
+        const errorText = await res.text();
+        registerStatus.textContent = "配准提交失败: " + errorText;
         return;
       }
       const task = await res.json();
       latestTaskId = task.task_id;
-      registerStatus.textContent = `任务完成：${task.task_id}`;
+      try { localStorage.setItem("brainatlas_last_sample_id", movingId); } catch (_) {}
+      registerStatus.textContent = `任务启动：${task.task_id}`;
+      // 轮询任务状态
+      const doneTask = await pollTaskUntilDone(task.task_id);
+      if (doneTask.status === "completed") {
+        registerStatus.textContent = `配准完成：${task.task_id}`;
+      } else {
+        registerStatus.textContent = `配准失败：${doneTask.result?.error || '未知错误'}`;
+      }
     }
 
     function clearAll() {
       filesState.clear();
       fileList.innerHTML = "";
       movingSample.innerHTML = "<option value=''>选择 moving 样本</option>";
-      fixedSample.innerHTML = "<option value=''>选择 fixed 样本</option>";
       registerStatus.textContent = "待选择样本";
       updateStats();
     }
@@ -973,12 +991,14 @@
       uploadAllToServer();
     });
     runGlobalBtn.addEventListener("click", () => runGlobalRegistration());
-    openViewerBtn.addEventListener("click", () => {
-      if (!latestPreparedSampleId) {
-        registerStatus.textContent = "暂无可查看预览的样本";
-        return;
+    goToViewerBtn.addEventListener("click", () => {
+      const sid = movingSample.value || latestPreparedSampleId;
+      if (sid) {
+        try { localStorage.setItem("brainatlas_last_sample_id", sid); } catch (_) {}
+        window.location.href = `/viewer?sample_id=${encodeURIComponent(sid)}`;
+      } else {
+        window.location.href = "/viewer";
       }
-      window.location.href = `/viewer?sample_id=${encodeURIComponent(latestPreparedSampleId)}&task_id=${encodeURIComponent(latestTaskId)}`;
     });
   </script>
 </body>

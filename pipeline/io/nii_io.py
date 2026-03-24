@@ -77,3 +77,22 @@ def load_nifti(path: str | Path) -> tuple[np.ndarray, dict[str, Any]]:
     }
 
     return volume, meta
+
+
+def inspect_nii(path: str | Path) -> dict[str, Any]:
+    """只读取 NIfTI 头元数据，不返回实际数据。"""
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"NIfTI 文件不存在: {path}")
+
+    nii = nib.load(str(path))
+    zooms = nii.header.get_zooms()[:3]
+    sx, sy, sz = zooms
+    shape_xyz = nii.shape[:3]
+
+    return {
+        "path": str(path),
+        "shape": tuple(shape_xyz),
+        "spacing": (float(sz), float(sy), float(sx)),
+        "dtype": str(nii.get_data_dtype()),
+    }

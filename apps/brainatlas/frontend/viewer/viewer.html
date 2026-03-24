@@ -264,6 +264,96 @@
       border-color: var(--accent);
       font-weight: 600;
     }
+
+    /* ---------- 状态 Badge ---------- */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+    .status-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-badge.queued   { background: rgba(148,163,184,0.15); color: #94a3b8; }
+    .status-badge.queued::before   { background: #94a3b8; }
+    .status-badge.running  { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .status-badge.running::before  { background: #38bdf8; animation: pulse-dot 1.2s infinite; }
+    .status-badge.completed { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .status-badge.completed::before { background: #22c55e; }
+    .status-badge.failed   { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .status-badge.failed::before   { background: #fb7185; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.3; }
+    }
+
+    /* ---------- 任务日志面板 ---------- */
+    .log-section {
+      margin-top: 6px;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+      padding: 6px 0;
+    }
+    .log-header:hover { opacity: 0.85; }
+    .log-body {
+      flex: 1 1 auto;
+      background: #0a0f1a;
+      border: 1px solid var(--border-soft);
+      border-radius: 8px;
+      padding: 8px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px;
+      line-height: 1.55;
+      color: #a5f3fc;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 260px;
+      min-height: 80px;
+    }
+    .log-body:empty::after {
+      content: '暂无日志';
+      color: var(--text-muted);
+    }
+    .log-body .log-error { color: #fb7185; }
+    .log-body .log-ts    { color: #64748b; }
+
+    /* ---------- 进度条 ---------- */
+    .progress-bar-outer {
+      width: 100%;
+      height: 4px;
+      background: var(--border-soft);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+    .progress-bar-inner {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    /* ---------- Coming Soon 占位 ---------- */
+    option:disabled {
+      color: #64748b;
+    }
   </style>
 </head>
 <body>
@@ -272,6 +362,7 @@
     <section class="panel">
       <div class="panel-header">
         <div class="panel-title"><span>🔍</span> 视图控制</div>
+        <button id="backToUploadBtn" class="btn" style="font-size:12px; padding:5px 10px; border-radius:6px;" title="返回上传页面">← 上传</button>
       </div>
       <div class="panel-body">
         <div class="field-group">
@@ -315,6 +406,12 @@
           <span id="header-sample-id">BrainAtlas Viewer</span>
         </div>
         <div class="viewer-header-right">
+          <select id="data-source" class="btn" style="margin-right:8px;">
+            <option value="original">原图</option>
+            <option value="global">Global配准结果</option>
+            <option value="local" disabled>Local配准 (Coming Soon)</option>
+            <option value="template" disabled>Template构建 (Coming Soon)</option>
+          </select>
           <button id="reset-view" class="btn">重置视角</button>
         </div>
       </div>
@@ -322,6 +419,9 @@
       <div class="viewer-main">
         <div id="niivue-container">
           <canvas id="canvas"></canvas>
+          <div id="viewer-status" style="position:absolute; left:12px; top:12px; z-index:5; padding:6px 10px; border-radius:8px; background:rgba(2,6,23,0.78); border:1px solid rgba(56,189,248,0.35); color:var(--text-main); font-size:12px; backdrop-filter:blur(8px);">
+            3D 组件加载中…
+          </div>
           
           <!-- 切片控制滑块 -->
           <div class="slice-controls" id="slice-controls">
@@ -389,37 +489,117 @@
         <div class="info-section">
           <div class="info-title">任务状态</div>
           <div class="info-item">
-            <div class="info-label">Prepare Status</div>
-            <div class="info-value" id="info-prepare">-</div>
+            <div class="info-label">Prepare</div>
+            <div class="info-value" id="info-prepare"><span class="status-badge queued">-</span></div>
           </div>
           <div class="info-item">
-            <div class="info-label">Registration</div>
-            <div class="info-value" id="info-reg">-</div>
+            <div class="info-label">Global Registration</div>
+            <div class="info-value" id="info-reg"><span class="status-badge queued">-</span></div>
+            <div class="progress-bar-outer" id="reg-progress-outer" style="display:none;">
+              <div class="progress-bar-inner" id="reg-progress-bar" style="width:0%;"></div>
+            </div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Task ID</div>
+            <div class="info-value" style="font-size:10px;font-family:monospace;" id="info-task-id">-</div>
           </div>
         </div>
 
         <div style="margin-top:10px; display:flex; gap:8px;">
           <button id="refresh-btn" class="btn btn-primary" style="flex:1;">刷新数据</button>
         </div>
+
+        <!-- 任务日志面板 -->
+        <div class="log-section" id="log-section">
+          <div class="log-header" id="log-toggle">
+            <span style="font-size:13px; font-weight:600; color:var(--accent);">📋 任务日志</span>
+            <span style="font-size:11px; color:var(--text-muted);" id="log-status">折叠</span>
+          </div>
+          <div class="log-body" id="log-body" style="display:none;"></div>
+        </div>
       </div>
     </section>
   </div>
 
-  <!-- NiiVue 脚本，使用更稳定的 jsdelivr CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@niivue/niivue@latest/dist/niivue.umd.js"></script>
   <script>
     const query = new URLSearchParams(window.location.search);
-    const sampleId = query.get("sample_id");
+    let sampleId = query.get("sample_id");
+    if (!sampleId) {
+      try {
+        sampleId = localStorage.getItem("brainatlas_last_sample_id") || "";
+      } catch (_) {
+        sampleId = "";
+      }
+    }
     
-    // 初始化 NiiVue
-    const nv = new niivue.Niivue({
-      loadingText: '正在加载体数据...',
-      backColor: [0, 0, 0, 1],
-      show3Dcrosshair: true,
-      onLocationChange: handleLocationChange
-    });
-    // 确保 canvas 关联正确
-    nv.attachTo('canvas');
+    const viewerStatus = document.getElementById('viewer-status');
+
+    async function loadScriptSequential(urls) {
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          await new Promise((resolve, reject) => {
+            const existing = document.querySelector(`script[data-src="${url}"]`);
+            if (existing) {
+              if (window.niivue && window.niivue.Niivue) {
+                resolve();
+              } else {
+                existing.addEventListener('load', () => resolve(), { once: true });
+                existing.addEventListener('error', () => reject(new Error(`load failed: ${url}`)), { once: true });
+              }
+              return;
+            }
+
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true;
+            script.dataset.src = url;
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error(`load failed: ${url}`));
+            document.head.appendChild(script);
+          });
+
+          if (window.niivue && window.niivue.Niivue) {
+            console.log('NiiVue loaded from', url);
+            return true;
+          }
+        } catch (err) {
+          lastError = err;
+          console.warn('NiiVue source unavailable:', url, err);
+        }
+      }
+      if (lastError) {
+        console.error('All NiiVue sources failed.', lastError);
+      }
+      return false;
+    }
+
+    // 初始化 NiiVue（本地优先 + 多 CDN 兜底，避免单点失效）
+    let nv = null;
+    async function ensureNiivueReady() {
+      if (!(window.niivue && window.niivue.Niivue)) {
+        viewerStatus.textContent = '3D 组件加载中…';
+        const ok = await loadScriptSequential([
+          '/static/vendor/niivue.umd.js',
+          'https://cdn.jsdelivr.net/npm/@niivue/niivue@0.64.0/dist/niivue.umd.js',
+          'https://unpkg.com/@niivue/niivue@0.64.0/dist/niivue.umd.js'
+        ]);
+        if (!ok) {
+          viewerStatus.textContent = '3D 组件加载失败';
+          return false;
+        }
+      }
+
+      nv = new window.niivue.Niivue({
+        loadingText: '正在加载体数据...',
+        backColor: [0, 0, 0, 1],
+        show3Dcrosshair: true,
+        onLocationChange: handleLocationChange
+      });
+      nv.attachTo('canvas');
+      viewerStatus.textContent = '3D 组件已就绪';
+      return true;
+    }
 
     // UI 元素
     const xSlider = document.getElementById('x-slider');
@@ -428,6 +608,9 @@
     const xVal = document.getElementById('x-val');
     const yVal = document.getElementById('y-val');
     const zVal = document.getElementById('z-val');
+    const dataSource = document.getElementById('data-source');
+
+    let currentSample = null;
 
     function handleLocationChange(data) {
       // 当在 NiiVue 中点击切换切片时，同步更新滑块
@@ -445,6 +628,7 @@
     // 滑块事件
     [xSlider, ySlider, zSlider].forEach((s, idx) => {
       s.addEventListener('input', () => {
+        if (!nv) return;
         const vox = [
           parseInt(xSlider.value),
           parseInt(ySlider.value),
@@ -462,98 +646,238 @@
 
     // 视图模式切换
     document.getElementById('viewMode').addEventListener('change', (e) => {
+      if (!nv) return;
       nv.setSliceType(parseInt(e.target.value));
     });
 
     // 颜色映射切换
     document.getElementById('colorMap').addEventListener('change', (e) => {
-      if (nv.volumes && nv.volumes.length > 0) {
+      if (nv && nv.volumes && nv.volumes.length > 0) {
         nv.volumes[0].colormap = e.target.value;
         nv.updateGLVolume();
       }
     });
 
     document.getElementById('reset-view').addEventListener('click', () => {
+      if (!nv) return;
       nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
     });
 
     async function loadSample() {
       if (!sampleId) {
-        console.warn("未指定 sample_id，请检查 URL 参数");
+        console.warn("未指定 sample_id，且未找到最近样本记录");
+        document.getElementById('header-sample-id').textContent = 'BrainAtlas Viewer（请先从上传页选择样本）';
         return;
       }
 
       try {
         const resp = await fetch(`/api/samples/${sampleId}`);
         if (!resp.ok) throw new Error("无法获取样本信息");
-        const sample = await resp.json();
+        currentSample = await resp.json();
 
         // 更新 UI 信息
-        document.getElementById('header-sample-id').textContent = `Sample: ${sample.sample_id}`;
-        document.getElementById('info-id').textContent = sample.sample_id;
-        document.getElementById('info-filename').textContent = sample.filename;
-        document.getElementById('info-prepare').textContent = sample.prepare_status;
-        document.getElementById('info-reg').textContent = sample.global_registration_status;
+        document.getElementById('header-sample-id').textContent = `Sample: ${currentSample.sample_id}`;
+        document.getElementById('info-id').textContent = currentSample.sample_id;
+        document.getElementById('info-filename').textContent = currentSample.filename;
+        document.getElementById('info-prepare').textContent = currentSample.prepare_status;
+        document.getElementById('info-reg').textContent = currentSample.global_registration_status;
 
-        if (sample.stats) {
-          document.getElementById('info-shape').textContent = sample.stats.shape.join(' × ');
-          document.getElementById('info-range').textContent = `${sample.stats.dtype} (${sample.stats.min} - ${sample.stats.max})`;
-          document.getElementById('info-mean').textContent = parseFloat(sample.stats.mean).toFixed(2);
+        const stats = currentSample.stats || {};
+        document.getElementById('info-shape').textContent = Array.isArray(stats.shape) ? stats.shape.join(' × ') : '-';
+        document.getElementById('info-range').textContent = stats.dtype ? `${stats.dtype} (${stats.min} - ${stats.max})` : '-';
+        document.getElementById('info-mean').textContent = Number.isFinite(Number(stats.mean)) ? Number(stats.mean).toFixed(2) : '-';
+
+        // 检查是否有global结果，如果有则启用切换
+        const hasGlobal = Boolean(
+          currentSample.global_registration?.global_nii_url ||
+          currentSample.global_registration?.preview_urls?.xy ||
+          currentSample.global_registration_status === 'completed'
+        );
+        dataSource.querySelector('option[value="global"]').disabled = !hasGlobal;
+        if (!hasGlobal) {
+          dataSource.value = 'original';
         }
 
-        // 加载预览图
-        if (sample.preview && sample.preview.preview_urls) {
-          const urls = sample.preview.preview_urls;
-          // 确保 URL 是正确的
-          document.getElementById('prev-xy').src = urls.xy || '';
-          document.getElementById('prev-xz').src = urls.xz || '';
-          document.getElementById('prev-yz').src = urls.yz || '';
-          document.getElementById('prev-mip-xy').src = urls.mip_xy || '';
-          document.getElementById('prev-mip-xz').src = urls.mip_xz || '';
-          document.getElementById('prev-mip-yz').src = urls.mip_yz || '';
-          console.log("PNG 预览图已加载:", urls);
-        }
-
-        // 加载 NIfTI
-        if (sample.converted && sample.converted.nii_url) {
-          console.log("正在通过 NiiVue 加载体数据:", sample.converted.nii_url);
-          const volumeList = [
-            {
-              url: sample.converted.nii_url,
-              colormap: "gray",
-              opacity: 1,
-              visible: true,
-            }
-          ];
-          await nv.loadVolumes(volumeList);
-          
-          // 设置滑块范围
-          if (nv.volumes && nv.volumes.length > 0) {
-            const dims = nv.volumes[0].dims; // [?, x, y, z]
-            xSlider.max = dims[1] - 1;
-            ySlider.max = dims[2] - 1;
-            zSlider.max = dims[3] - 1;
-            
-            // 初始位置设为中心
-            const mid = [Math.floor(dims[1]/2), Math.floor(dims[2]/2), Math.floor(dims[3]/2)];
-            nv.scene.crosshairPos = nv.vox2frac(mid);
-            handleLocationChange({vox: mid});
-          }
-          
-          nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
-        } else {
-          console.warn("未找到 nii_url，无法加载体数据");
-        }
+        // 加载数据
+        loadData();
 
       } catch (err) {
         console.error("加载样本数据失败:", err);
       }
     }
 
+    async function loadData() {
+      if (!currentSample) return;
+
+      const source = dataSource.value;
+      let niiUrl = '';
+      let previewUrls = {};
+
+      if (source === 'original') {
+        niiUrl = currentSample.converted?.nii_url || '';
+        previewUrls = currentSample.preview?.preview_urls || {};
+      } else if (source === 'global') {
+        niiUrl = currentSample.global_registration?.global_nii_url || '';
+        previewUrls = currentSample.global_registration?.preview_urls || {};
+      }
+
+      // 更新预览图
+      document.getElementById('prev-xy').src = previewUrls.xy || '';
+      document.getElementById('prev-xz').src = previewUrls.xz || '';
+      document.getElementById('prev-yz').src = previewUrls.yz || '';
+      document.getElementById('prev-mip-xy').src = previewUrls.mip_xy || '';
+      document.getElementById('prev-mip-xz').src = previewUrls.mip_xz || '';
+      document.getElementById('prev-mip-yz').src = previewUrls.mip_yz || '';
+
+      // 加载 NIfTI
+      if (niiUrl && nv) {
+        console.log(`正在通过 NiiVue 加载 ${source} 体数据:`, niiUrl);
+        viewerStatus.textContent = `3D 数据加载中（${source === 'global' ? 'Global结果' : '原图'}）…`;
+        const volumeList = [
+          {
+            url: niiUrl,
+            colormap: "gray",
+            opacity: 1,
+            visible: true,
+          }
+        ];
+        await nv.loadVolumes(volumeList);
+        
+        // 设置滑块范围
+        if (nv.volumes && nv.volumes.length > 0) {
+          const dims = nv.volumes[0].dims; // [?, x, y, z]
+          xSlider.max = dims[1] - 1;
+          ySlider.max = dims[2] - 1;
+          zSlider.max = dims[3] - 1;
+          
+          // 初始位置设为中心
+          const mid = [Math.floor(dims[1]/2), Math.floor(dims[2]/2), Math.floor(dims[3]/2)];
+          nv.scene.crosshairPos = nv.vox2frac(mid);
+          handleLocationChange({vox: mid});
+        }
+        
+        nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
+        viewerStatus.textContent = `3D 显示中（${source === 'global' ? 'Global结果' : '原图'}）`;
+      } else if (niiUrl && !nv) {
+        console.warn('NiiVue 未可用，已显示预览图但无法加载 3D 体数据。');
+        viewerStatus.textContent = '3D 组件不可用';
+      } else {
+        console.warn(`未找到 ${source} 的 nii_url，无法加载体数据`);
+        viewerStatus.textContent = '未找到可显示的体数据';
+      }
+    }
+
     document.getElementById('refresh-btn').addEventListener('click', loadSample);
+    document.getElementById('backToUploadBtn').addEventListener('click', () => {
+      window.location.href = '/upload';
+    });
+    dataSource.addEventListener('change', loadData);
+
+    // ---------- 状态 Badge 渲染 ----------
+    function renderBadge(status) {
+      const labels = {
+        queued: '排队中', running: '运行中', completed: '已完成',
+        failed: '失败', pending: '等待中', '-': '-'
+      };
+      const cls = status === 'pending' ? 'queued' : (status || 'queued');
+      return `<span class="status-badge ${cls}">${labels[status] || status || '-'}</span>`;
+    }
+
+    // ---------- 日志面板 ----------
+    let logExpanded = false;
+    let logPollingTimer = null;
+    let activeTaskId = null;
+
+    document.getElementById('log-toggle').addEventListener('click', () => {
+      logExpanded = !logExpanded;
+      document.getElementById('log-body').style.display = logExpanded ? 'block' : 'none';
+      document.getElementById('log-status').textContent = logExpanded ? '收起' : '展开';
+    });
+
+    function colorizeLog(text) {
+      return text.replace(/^(\[.*?\])/gm, '<span class="log-ts">$1</span>')
+                 .replace(/\[ERROR\].*$/gm, (m) => `<span class="log-error">${m}</span>`);
+    }
+
+    async function pollTaskLog() {
+      if (!activeTaskId) return;
+      try {
+        const resp = await fetch(`/api/tasks/${activeTaskId}/log?tail=200`);
+        if (resp.ok) {
+          const text = await resp.text();
+          const el = document.getElementById('log-body');
+          el.innerHTML = colorizeLog(text) || '';
+          el.scrollTop = el.scrollHeight;
+        }
+        // 同时刷新任务状态
+        const tResp = await fetch(`/api/tasks/${activeTaskId}`);
+        if (tResp.ok) {
+          const task = await tResp.json();
+          updateTaskUI(task);
+          // 任务结束时停止轮询并刷新样本
+          if (task.status === 'completed' || task.status === 'failed') {
+            stopLogPolling();
+            // 延迟一下再刷新样本数据
+            setTimeout(loadSample, 1000);
+          }
+        }
+      } catch (e) {
+        console.warn('日志轮询异常:', e);
+      }
+    }
+
+    function updateTaskUI(task) {
+      if (!task) return;
+      if (task.task_type === 'global_registration') {
+        document.getElementById('info-reg').innerHTML = renderBadge(task.status);
+        const progOuter = document.getElementById('reg-progress-outer');
+        const progBar  = document.getElementById('reg-progress-bar');
+        if (task.status === 'running') {
+          progOuter.style.display = 'block';
+          progBar.style.width = (task.progress || 0) + '%';
+        } else {
+          progOuter.style.display = 'none';
+        }
+      }
+    }
+
+    function startLogPolling(taskId) {
+      stopLogPolling();
+      activeTaskId = taskId;
+      document.getElementById('info-task-id').textContent = taskId;
+      // 立即展开日志
+      if (!logExpanded) {
+        document.getElementById('log-toggle').click();
+      }
+      pollTaskLog();
+      logPollingTimer = setInterval(pollTaskLog, 2000);
+    }
+
+    function stopLogPolling() {
+      if (logPollingTimer) {
+        clearInterval(logPollingTimer);
+        logPollingTimer = null;
+      }
+    }
+
+    // ---------- 增强 loadSample：渲染 badge ----------
+    const _origLoadSample = loadSample;
+    loadSample = async function() {
+      await _origLoadSample();
+      if (currentSample) {
+        document.getElementById('info-prepare').innerHTML = renderBadge(currentSample.prepare_status);
+        document.getElementById('info-reg').innerHTML = renderBadge(currentSample.global_registration_status);
+      }
+    };
+
+    // 暴露 startLogPolling 给外部（如 upload 页面通过 postMessage 通知）
+    window.brainatlasViewer = { startLogPolling, stopLogPolling };
 
     // 初始加载
-    loadSample();
+    (async () => {
+      await ensureNiivueReady();
+      await loadSample();
+    })();
   </script>
 </body>
 </html>

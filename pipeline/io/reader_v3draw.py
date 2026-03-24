@@ -144,3 +144,8 @@ def read_v3draw(path: str | Path) -> tuple[np.ndarray, dict[str, Any]]:
 
     # dtype_np 不能直接写 json，后面通常去掉
     return volume, meta
+
+
+def read_v3draw_header(path: str | Path) -> dict[str, Any]:
+    """只读取 v3draw 文件头信息，不载入像素数据。"""
+    return _parse_header(path)

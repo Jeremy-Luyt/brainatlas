@@ -17,6 +17,7 @@ def _to_static_url(path_str: str) -> str:
 
 
 def run_prepare(sample_id: str) -> dict[str, Any]:
+    """同步执行预处理（也可由后台任务调用）"""
     sample = get_sample(sample_id)
     if not sample:
         raise ValueError(f"Sample {sample_id} not found")
@@ -76,3 +77,19 @@ def run_prepare(sample_id: str) -> dict[str, Any]:
     updated_sample = update_sample(sample_id, updates)
 
     return updated_sample
+
+
+def run_prepare_task(payload: dict[str, Any], task_logger: Any) -> dict[str, Any]:
+    """后台任务处理器（由 task_runner 调用）"""
+    sample_id = payload["sample_id"]
+    task_logger.info(f"Starting prepare for sample {sample_id}")
+
+    update_sample(sample_id, {"prepare_status": "running"})
+
+    try:
+        result = run_prepare(sample_id)
+        task_logger.info(f"Prepare completed: shape={result.get('stats', {}).get('shape')}")
+        return {"sample_id": sample_id, "status": "completed"}
+    except Exception:
+        update_sample(sample_id, {"prepare_status": "failed"})
+        raise

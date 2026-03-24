@@ -7,8 +7,8 @@ router = APIRouter(prefix="/results", tags=["results"])
 
 
 @router.get("/{task_id}")
-def result_detail(task_id: str) -> dict:
-    task = get_task(task_id)
+def result_detail(task_id: str, project_id: str = "default") -> dict:
+    task = get_task(task_id, project_id=project_id)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
     if not task.get("result"):

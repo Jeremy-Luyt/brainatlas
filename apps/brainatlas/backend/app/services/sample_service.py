@@ -38,8 +38,8 @@ def _sample_dir(project_id: str, sample_id: str) -> Path:
     return path
 
 
-def create_sample(project_id: str, original_filename: str, stored_path: Path) -> dict[str, Any]:
-    sample_id = uuid4().hex[:12]
+def create_sample(project_id: str, original_filename: str, stored_path: Path, sample_id: str | None = None) -> dict[str, Any]:
+    sample_id = sample_id or uuid4().hex[:12]
     sample_dir = _sample_dir(project_id, sample_id)
     payload: dict[str, Any] = {
         "sample_id": sample_id,
