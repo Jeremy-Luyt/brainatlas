@@ -169,6 +169,30 @@ tools/bin/**/*
 !tools/bin/**/.gitkeep
 !tools/bin/**/README.md
 
+# Track STPS source code (refactored C++/CUDA sources)
+!tools/bin/STPS/
+!tools/bin/STPS/**
+!tools/bin/STPS/Stps_warp_image&point/
+!tools/bin/STPS/Stps_warp_image&point/*.cpp
+!tools/bin/STPS/Stps_warp_image&point/*.h
+!tools/bin/STPS/Stps_warp_image&point/*.cu
+!tools/bin/STPS/Stps_warp_image&point/*.cuh
+!tools/bin/STPS/Stps_warp_image&point/*.c
+!tools/bin/STPS/Stps_warp_image&point/*.vcxproj
+!tools/bin/STPS/Stps_warp_image&point/*.vcxproj.filters
+# Exclude STPS build artifacts & backups
+tools/bin/STPS/Stps_warp_image&point/*.bak
+tools/bin/STPS/Stps_warp_image&point/*.sdf
+tools/bin/STPS/Stps_warp_image&point/*.opensdf
+tools/bin/STPS/Stps_warp_image&point/*.suo
+tools/bin/STPS/Stps_warp_image&point/*.user
+tools/bin/STPS/Stps_warp_image&point/*.sln
+tools/bin/STPS/Stps_warp_image&point/*.lib
+tools/bin/STPS/Stps_warp_image&point/.vs/
+tools/bin/STPS/Stps_warp_image&point/Debug/
+tools/bin/STPS/Stps_warp_image&point/Release/
+tools/bin/STPS/Stps_warp_image&point/x64/
+
 # Keep batch scripts tracked
 !tools/batch/**/*.bat
 !tools/batch/**/README.md

@@ -138,11 +138,18 @@ def run_global_registration(moving: str | Path, fixed: str | Path, output_dir: s
     log_path = output_dir / "global_registration.log"
     print(f"DEBUG CMD: {cmd}")
     output_path = _collect_outputs(output_dir, moving)
-    process = subprocess.run(cmd, capture_output=True, text=False, env=env, cwd=str(exe.parent))
-    stdout_text = _decode_output(process.stdout)
-    stderr_text = _decode_output(process.stderr)
-    merged_log = (stdout_text or "") + "\n" + (stderr_text or "")
-    log_path.write_text(merged_log, encoding="utf-8")
+
+    # 将 stdout/stderr 写入日志文件，避免 capture_output 在大输出时死锁
+    with open(log_path, "w", encoding="utf-8") as log_fh:
+        process = subprocess.run(
+            cmd,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            env=env,
+            cwd=str(exe.parent),
+            timeout=1800,  # 30 分钟超时保护
+        )
+    merged_log = log_path.read_text(encoding="utf-8", errors="replace")
 
     has_output = output_path.exists()
     success_by_log = "Program exit success" in merged_log

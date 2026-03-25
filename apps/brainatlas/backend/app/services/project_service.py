@@ -65,12 +65,15 @@ def list_sample_summaries(project_id: str) -> list[dict[str, Any]]:
     for sample_json in sorted(samples_dir.glob("*/sample.json")):
         try:
             data = read_json(sample_json)
+            qc = data.get("global_qc") or {}
             summaries.append({
                 "sample_id": data.get("sample_id", sample_json.parent.name),
                 "filename": data.get("filename", ""),
                 "input_format": data.get("input_format", ""),
                 "prepare_status": data.get("prepare_status", "pending"),
                 "global_registration_status": data.get("global_registration_status", "idle"),
+                "global_qc_score": qc.get("score"),
+                "global_qc_level": qc.get("qc_level"),
                 "shape": data.get("stats", {}).get("shape"),
                 "created_at": data.get("created_at"),
             })

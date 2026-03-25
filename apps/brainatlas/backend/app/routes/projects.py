@@ -53,3 +53,27 @@ def project_detail(project_id: str) -> dict:
         "tasks": task_summaries,
         "task_count": len(all_tasks),
     }
+
+
+@router.get("/{project_id}/pipeline-status")
+def pipeline_status(project_id: str) -> dict:
+    """返回项目级别的流水线进度统计。"""
+    samples = list_sample_summaries(project_id)
+    total = len(samples)
+    prep_done = sum(1 for s in samples if s.get("prepare_status") == "completed")
+    reg_done = sum(1 for s in samples if s.get("global_registration_status") == "completed")
+    reg_running = sum(1 for s in samples if s.get("global_registration_status") == "running")
+    qc_done = sum(1 for s in samples if s.get("global_qc_score") is not None)
+    usable = sum(1 for s in samples if s.get("global_qc_level") in ("excellent", "good"))
+
+    return {
+        "total": total,
+        "steps": {
+            "upload":       {"done": total, "total": total},
+            "prepare":      {"done": prep_done, "total": total},
+            "registration": {"done": reg_done, "running": reg_running, "total": total},
+            "qc":           {"done": qc_done, "total": reg_done},
+            "template":     {"done": usable, "total": qc_done},
+        },
+        "samples": samples,
+    }

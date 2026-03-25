@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>BrainAtlas · 任务监控</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/static/brainatlas-logo.png" type="image/png" />
+  <style>
+    :root {
+      --bg-main: #050816;
+      --bg-elevated: #0b1220;
+      --bg-elevated-soft: #020617;
+      --panel-soft: rgba(15, 23, 42, 0.72);
+      --border-soft: #1f2937;
+      --accent: #22d3ee;
+      --accent-soft: rgba(34, 211, 238, 0.18);
+      --accent-strong: #38bdf8;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --danger: #f97373;
+      --success: #4ade80;
+      --warning: #facc15;
+      --radius-lg: 18px;
+      --radius-md: 14px;
+      --shadow-soft: 0 18px 45px rgba(0,0,0,0.55);
+      --transition-fast: 160ms ease-out;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; min-height: 100vh;
+      font-family: "Avenir Next","SF Pro Display","PingFang SC","Hiragino Sans GB","Source Han Sans CN","Segoe UI",sans-serif;
+      background: radial-gradient(circle at 0% 0%, #0ea5e9 0, transparent 45%),
+          radial-gradient(circle at 100% 100%, #14b8a6 0, transparent 42%),
+          radial-gradient(circle at 50% 100%, rgba(14,165,233,0.2) 0, transparent 40%),
+          var(--bg-main);
+      color: var(--text-main);
+      display: flex; align-items: stretch; justify-content: center;
+    }
+    .shell {
+      width: 100%; max-width: 1260px; margin: 26px 16px;
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(15,23,42,0.9), rgba(2,6,23,0.96));
+      box-shadow: var(--shadow-soft);
+      display: flex; flex-direction: column;
+      border: 1px solid rgba(148,163,184,0.25);
+      overflow: hidden; backdrop-filter: blur(18px);
+    }
+    header {
+      padding: 18px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid rgba(15,23,42,0.9);
+      background: linear-gradient(90deg, rgba(15,23,42,0.94), rgba(6,78,110,0.82));
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark {
+      width: 32px; height: 32px; border-radius: 999px;
+      background: rgba(15,23,42,0.95);
+      box-shadow: 0 0 18px rgba(56,189,248,0.9);
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .brand-logo-img { width: 26px; height: 26px; object-fit: contain; display: block; }
+    .brand-text-main { font-weight: 650; letter-spacing: 0.04em; font-size: 16px; }
+    .brand-text-sub { font-size: 11px; color: var(--text-muted); }
+    header .meta { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--text-muted); }
+    .pill {
+      padding: 2px 10px; border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.5);
+      display: inline-flex; align-items: center; gap: 6px;
+      background: radial-gradient(circle at 0 0,rgba(34,211,238,0.08),transparent);
+    }
+    .pill-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 8px rgba(34,211,238,0.8);
+    }
+
+    /* Nav Bar */
+    .top-nav { display: flex; align-items: center; gap: 6px; padding: 10px 24px 0; }
+    .nav-card {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px; border-radius: 14px;
+      background: rgba(15,23,42,0.55);
+      border: 1px solid rgba(55,65,81,0.45);
+      backdrop-filter: blur(12px);
+      cursor: pointer; text-decoration: none; color: var(--text-muted);
+      transition: all var(--transition-fast);
+      position: relative; overflow: hidden;
+    }
+    .nav-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(circle at 30% 0, rgba(56,189,248,0.12), transparent 70%);
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .nav-card:hover { border-color: rgba(56,189,248,0.35); background: rgba(15,23,42,0.7); }
+    .nav-card:hover::before { opacity: 1; }
+    .nav-card.active {
+      border-color: rgba(34,211,238,0.55);
+      background: linear-gradient(135deg, rgba(15,23,42,0.85), rgba(6,78,110,0.35));
+      color: var(--text-main);
+      box-shadow: 0 0 20px rgba(34,211,238,0.15), inset 0 1px 0 rgba(148,163,184,0.1);
+    }
+    .nav-card.active::before { opacity: 1; }
+    .nav-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; flex-shrink: 0;
+      background: rgba(2,6,23,0.6); border: 1px solid rgba(55,65,81,0.5);
+      transition: all var(--transition-fast);
+    }
+    .nav-card.active .nav-icon {
+      background: rgba(34,211,238,0.1); border-color: rgba(34,211,238,0.4);
+      box-shadow: 0 0 12px rgba(34,211,238,0.25);
+    }
+    .nav-label { font-size: 13px; font-weight: 500; position: relative; z-index: 1; }
+    .nav-sub { font-size: 10px; color: var(--text-muted); position: relative; z-index: 1; }
+    .nav-card.active .nav-sub { color: rgba(148,163,184,0.85); }
+
+    /* Main grid */
+    main {
+      padding: 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 16px;
+      flex: 1 1 auto;
+      overflow-y: auto;
+    }
+    @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+    .card {
+      border-radius: var(--radius-lg); padding: 18px;
+      background: radial-gradient(circle at 0 0,rgba(56,189,248,0.1),transparent 55%),
+                  linear-gradient(145deg,var(--bg-elevated),var(--bg-elevated-soft));
+      border: 1px solid rgba(56,189,248,0.26);
+      box-shadow: 0 12px 35px rgba(15,23,42,0.75);
+      position: relative; overflow: hidden;
+    }
+    .card-title {
+      font-size: 15px; font-weight: 500;
+      display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+    }
+    .card-title span.icon { font-size: 17px; }
+
+    /* Pipeline Stepper */
+    .pipeline-stepper { display: flex; flex-direction: column; gap: 0; }
+    .pipeline-step {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 8px 0; position: relative;
+    }
+    .pipeline-step:not(:last-child)::after {
+      content: ""; position: absolute;
+      left: 15px; top: 38px; bottom: -8px; width: 2px;
+      background: rgba(55,65,81,0.5); transition: background 0.4s ease;
+    }
+    .pipeline-step.active:not(:last-child)::after { background: rgba(34,211,238,0.4); }
+    .pipeline-step.done:not(:last-child)::after { background: rgba(74,222,128,0.4); }
+    .step-indicator {
+      width: 30px; height: 30px; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      border: 2px solid rgba(55,65,81,0.7);
+      background: rgba(15,23,42,0.9); color: var(--text-muted);
+      transition: all 0.35s ease;
+    }
+    .pipeline-step.done .step-indicator {
+      border-color: var(--success); background: rgba(34,197,94,0.12); color: var(--success);
+    }
+    .pipeline-step.active .step-indicator {
+      border-color: var(--accent); background: rgba(34,211,238,0.12); color: var(--accent);
+      box-shadow: 0 0 12px rgba(34,211,238,0.35);
+      animation: stepPulse 2s ease-in-out infinite;
+    }
+    @keyframes stepPulse {
+      0%,100% { box-shadow: 0 0 10px rgba(34,211,238,0.35); }
+      50% { box-shadow: 0 0 20px rgba(34,211,238,0.6); }
+    }
+    .step-body { flex: 1; min-width: 0; }
+    .step-label { font-size: 13px; font-weight: 500; line-height: 30px; }
+    .step-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .step-detail .frac { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    /* QC Ranking */
+    .rank-list { list-style: none; margin: 0; padding: 0; }
+    .rank-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; margin-bottom: 8px; border-radius: 12px;
+      background: rgba(15,23,42,0.6); border: 1px solid rgba(31,41,55,0.8);
+      transition: border-color var(--transition-fast), background var(--transition-fast);
+    }
+    .rank-item:hover { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.06); }
+    .rank-medal {
+      width: 28px; height: 28px; border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .rank-medal.gold   { background: linear-gradient(135deg,#fbbf24,#f59e0b); color: #451a03; box-shadow: 0 0 10px rgba(251,191,36,0.6); }
+    .rank-medal.silver { background: linear-gradient(135deg,#cbd5e1,#94a3b8); color: #1e293b; box-shadow: 0 0 8px rgba(148,163,184,0.5); }
+    .rank-medal.bronze { background: linear-gradient(135deg,#d97706,#b45309); color: #fffbeb; box-shadow: 0 0 8px rgba(217,119,6,0.5); }
+    .rank-info { flex: 1; min-width: 0; }
+    .rank-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rank-score { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rank-level { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 500; }
+    .rank-level.excellent { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .rank-level.good      { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .rank-level.review    { background: rgba(250,204,21,0.15); color: #facc15; }
+    .rank-level.reject    { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .rank-empty { font-size: 12px; color: var(--text-muted); padding: 16px 0; text-align: center; }
+    .rank-use-btn {
+      font-size: 10px; padding: 3px 10px; border-radius: 999px;
+      border: 1px solid rgba(34,197,94,0.5); background: rgba(34,197,94,0.1);
+      color: #4ade80; cursor: pointer; transition: background var(--transition-fast);
+    }
+    .rank-use-btn:hover { background: rgba(34,197,94,0.25); }
+    @keyframes qcFadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Task log */
+    .log-shell {
+      margin: 0; flex: 1 1 auto;
+      min-height: 200px; max-height: 420px;
+      overflow: auto; white-space: pre-wrap; word-break: break-word;
+      font-size: 11.5px; line-height: 1.5;
+      border: 1px solid rgba(71,85,105,0.8); border-radius: 12px;
+      background: rgba(2,6,23,0.88); color: #cbd5e1; padding: 12px;
+      font-family: "Cascadia Code","Fira Code","JetBrains Mono",monospace;
+    }
+
+    /* Task list */
+    .task-list { list-style: none; margin: 0; padding: 0; max-height: 250px; overflow-y: auto; }
+    .task-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; margin-bottom: 6px; border-radius: 10px;
+      background: rgba(15,23,42,0.6); border: 1px solid rgba(31,41,55,0.8);
+      cursor: pointer; transition: all var(--transition-fast);
+    }
+    .task-row:hover { border-color: rgba(56,189,248,0.3); background: rgba(56,189,248,0.05); }
+    .task-row.active { border-color: rgba(34,211,238,0.5); background: rgba(34,211,238,0.08); }
+    .task-type { font-size: 11px; color: var(--text-muted); min-width: 80px; }
+    .task-id { font-size: 11px; font-family: monospace; color: var(--accent); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .task-status {
+      font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 500; white-space: nowrap;
+    }
+    .task-status.completed { background: rgba(34,197,94,0.12); color: var(--success); }
+    .task-status.failed    { background: rgba(251,113,133,0.12); color: var(--danger); }
+    .task-status.running   { background: rgba(34,211,238,0.12); color: var(--accent); }
+    .task-status.queued    { background: rgba(250,204,21,0.12); color: var(--warning); }
+
+    .btn {
+      border-radius: 999px; padding: 7px 14px; font-size: 12px;
+      border: 1px solid rgba(148,163,184,0.7);
+      background: linear-gradient(135deg,#0b1120,#020617);
+      color: var(--text-main); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      transition: background var(--transition-fast), border-color var(--transition-fast), transform 120ms ease-out;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(15,23,42,0.7); }
+    .btn:active { transform: translateY(0); box-shadow: none; }
+    .btn-primary {
+      border-color: rgba(56,189,248,0.9);
+      background: radial-gradient(circle at 0 0, rgba(56,189,248,0.25), transparent 55%), linear-gradient(135deg,#0ea5e9,#22c55e);
+      color: #0b1120; font-weight: 500; box-shadow: 0 0 22px rgba(56,189,248,0.75);
+    }
+    .btn-primary:hover { box-shadow: 0 0 28px rgba(56,189,248,0.95); }
+
+    .full-span { grid-column: 1 / -1; }
+
+    @media (max-width: 860px) {
+      .shell { margin: 10px; }
+      header { padding: 14px; }
+      main { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="/static/brainatlas-logo.png" alt="brainatlas logo" class="brand-logo-img" />
+        </div>
+        <div>
+          <div class="brand-text-main">BrainAtlas</div>
+          <div class="brand-text-sub">任务监控面板</div>
+        </div>
+      </div>
+      <div class="meta">
+        <div class="pill"><span class="pill-dot"></span><span>mBrainAligner 驱动</span></div>
+        <span>v1.0</span>
+      </div>
+    </header>
+
+    <nav class="top-nav">
+      <a class="nav-card" href="/upload">
+        <span class="nav-icon">📤</span>
+        <span><span class="nav-label">数据上传</span><br/><span class="nav-sub">导入 · 扫描 · 配准</span></span>
+      </a>
+      <a class="nav-card active" href="/monitor">
+        <span class="nav-icon">📊</span>
+        <span><span class="nav-label">任务监控</span><br/><span class="nav-sub">流水线 · 排行 · 日志</span></span>
+      </a>
+      <a class="nav-card" href="/viewer">
+        <span class="nav-icon">🧠</span>
+        <span><span class="nav-label">三维查看器</span><br/><span class="nav-sub">NiiVue · 脑图谱浏览</span></span>
+      </a>
+    </nav>
+
+    <main>
+      <!-- ====== 左列：流水线进度 + QC 排行 ====== -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <section class="card">
+          <div class="card-title"><span class="icon">📋</span> 流水线进度</div>
+          <div class="pipeline-stepper" id="pipelineStepper">
+            <div class="pipeline-step" data-step="upload" id="pipeStepUpload">
+              <div class="step-indicator">1</div>
+              <div class="step-body">
+                <div class="step-label">数据导入</div>
+                <div class="step-detail" id="stepUploadDetail">等待数据…</div>
+              </div>
+            </div>
+            <div class="pipeline-step" data-step="prepare" id="pipeStepPrepare">
+              <div class="step-indicator">2</div>
+              <div class="step-body">
+                <div class="step-label">预处理</div>
+                <div class="step-detail" id="stepPrepareDetail">—</div>
+              </div>
+            </div>
+            <div class="pipeline-step" data-step="registration" id="pipeStepReg">
+              <div class="step-indicator">3</div>
+              <div class="step-body">
+                <div class="step-label">全局配准</div>
+                <div class="step-detail" id="stepRegDetail">—</div>
+              </div>
+            </div>
+            <div class="pipeline-step" data-step="qc" id="pipeStepQc">
+              <div class="step-indicator">4</div>
+              <div class="step-body">
+                <div class="step-label">QC 评估</div>
+                <div class="step-detail" id="stepQcDetail">—</div>
+              </div>
+            </div>
+            <div class="pipeline-step" data-step="template" id="pipeStepTemplate">
+              <div class="step-indicator">5</div>
+              <div class="step-body">
+                <div class="step-label">模板候选</div>
+                <div class="step-detail" id="stepTemplateDetail">—</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-title"><span class="icon">🏆</span> QC 排行榜 · 模板候选</div>
+          <ol class="rank-list" id="qcRankList">
+            <li class="rank-empty" id="qcRankEmpty">配准完成后自动评估，排名将在此显示</li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- ====== 右列：任务列表 + 日志 ====== -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <section class="card">
+          <div class="card-title">
+            <span class="icon">📝</span> 任务列表
+            <button class="btn" id="refreshTasksBtn" style="margin-left:auto; padding:4px 10px; font-size:11px;">🔄 刷新</button>
+          </div>
+          <ul class="task-list" id="taskList">
+            <li class="rank-empty">暂无任务记录</li>
+          </ul>
+        </section>
+
+        <section class="card" style="flex:1 1 auto; display:flex; flex-direction:column;">
+          <div class="card-title">
+            <span class="icon">📜</span> 实时日志
+            <span id="logTaskHint" style="margin-left:auto; font-size:11px; color:var(--text-muted);">点击任务查看日志</span>
+          </div>
+          <pre id="taskLogBody" class="log-shell" style="color:var(--text-muted); font-style:italic;">选择一个任务以查看日志输出…</pre>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const API = {
+      tasks: "/api/tasks?project_id=default",
+      taskDetail: (id) => `/api/tasks/${encodeURIComponent(id)}`,
+      taskLog: (id) => `/api/tasks/${encodeURIComponent(id)}/log?tail=120`,
+      templateCandidates: "/api/projects/default/template-candidates",
+      pipelineStatus: "/api/projects/default/pipeline-status",
+    };
+
+    const taskList = document.getElementById("taskList");
+    const taskLogBody = document.getElementById("taskLogBody");
+    const logTaskHint = document.getElementById("logTaskHint");
+    let logTimer = null;
+    let activeTaskId = null;
+
+    // ====== Pipeline status ======
+    async function refreshPipelineStatus() {
+      try {
+        const resp = await fetch(API.pipelineStatus);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const s = data.steps;
+        function updateStep(elId, detailId, step) {
+          const el = document.getElementById(elId);
+          const det = document.getElementById(detailId);
+          if (!el || !det) return;
+          const done = step.done || 0;
+          const t = step.total || 0;
+          const running = step.running || 0;
+          el.classList.remove("done", "active");
+          if (t > 0 && done >= t) {
+            el.classList.add("done");
+            el.querySelector(".step-indicator").textContent = "✓";
+            det.innerHTML = `<span class="frac">${done}/${t}</span> 已完成`;
+          } else if (done > 0 || running > 0) {
+            el.classList.add("active");
+            let html = `<span class="frac">${done}/${t}</span> 已完成`;
+            if (running > 0) html += ` · ${running} 进行中`;
+            det.innerHTML = html;
+          } else if (t > 0) {
+            det.innerHTML = `0/${t} 待处理`;
+          } else {
+            det.textContent = "—";
+          }
+        }
+        updateStep("pipeStepUpload", "stepUploadDetail", s.upload);
+        updateStep("pipeStepPrepare", "stepPrepareDetail", s.prepare);
+        updateStep("pipeStepReg", "stepRegDetail", s.registration);
+        updateStep("pipeStepQc", "stepQcDetail", s.qc);
+        updateStep("pipeStepTemplate", "stepTemplateDetail", s.template);
+      } catch (_) {}
+    }
+
+    // ====== QC Ranking ======
+    const MEDAL_CLS = ["gold", "silver", "bronze"];
+    async function refreshQcRanking() {
+      try {
+        const resp = await fetch(API.templateCandidates);
+        if (!resp.ok) return;
+        const candidates = await resp.json();
+        const list = document.getElementById("qcRankList");
+        if (!candidates.length) return;
+        list.innerHTML = "";
+        candidates.forEach((c, i) => {
+          const li = document.createElement("li");
+          li.className = "rank-item";
+          li.style.animation = `qcFadeIn 0.35s ease-out ${i * 0.08}s both`;
+          const level = c.qc_level || "review";
+          const medal = MEDAL_CLS[i] || "";
+          li.innerHTML =
+            `<span class="rank-medal ${medal}">${i + 1}</span>` +
+            `<span class="rank-info"><span class="rank-name" title="${c.filename}">${c.filename}</span></span>` +
+            `<span class="rank-score">${(c.score * 100).toFixed(1)}</span>` +
+            `<span class="rank-level ${level}">${level}</span>` +
+            `<button class="rank-use-btn" title="在查看器中查看">→ 查看</button>`;
+          li.querySelector(".rank-use-btn").addEventListener("click", () => {
+            window.location.href = `/viewer?sample_id=${encodeURIComponent(c.sample_id)}`;
+          });
+          list.appendChild(li);
+        });
+        if (candidates.length > 5) {
+          const more = document.createElement("li");
+          more.className = "rank-empty";
+          more.textContent = `共 ${candidates.length} 个样本已评分`;
+          list.appendChild(more);
+        }
+      } catch (_) {}
+    }
+
+    // ====== Task list ======
+    async function refreshTaskList() {
+      try {
+        const resp = await fetch(API.tasks);
+        if (!resp.ok) return;
+        const tasks = await resp.json();
+        if (!Array.isArray(tasks) || tasks.length === 0) {
+          taskList.innerHTML = '<li class="rank-empty">暂无任务记录</li>';
+          return;
+        }
+        // Sort: running first, then queued, then by created_at desc
+        const order = { running: 0, queued: 1, completed: 2, failed: 3 };
+        tasks.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || new Date(b.created_at) - new Date(a.created_at));
+        taskList.innerHTML = "";
+        for (const t of tasks) {
+          const li = document.createElement("li");
+          li.className = "task-row" + (t.task_id === activeTaskId ? " active" : "");
+          const typeLabel = t.task_type === "global_registration" ? "配准" : t.task_type === "sample_prepare" ? "预处理" : t.task_type;
+          li.innerHTML =
+            `<span class="task-type">${typeLabel}</span>` +
+            `<span class="task-id" title="${t.task_id}">${t.task_id.slice(0, 12)}…</span>` +
+            `<span class="task-status ${t.status}">${t.status}</span>`;
+          li.addEventListener("click", () => selectTask(t.task_id));
+          taskList.appendChild(li);
+        }
+      } catch (_) {}
+    }
+
+    // ====== Task log ======
+    function selectTask(taskId) {
+      activeTaskId = taskId;
+      logTaskHint.textContent = `任务 ${taskId.slice(0, 8)}…`;
+      taskLogBody.textContent = "⏳ 加载日志…\n";
+      taskLogBody.style.color = "#cbd5e1";
+      taskLogBody.style.fontStyle = "normal";
+      // Highlight active row
+      taskList.querySelectorAll(".task-row").forEach(r => r.classList.toggle("active", r.querySelector(".task-id")?.title === taskId));
+      fetchLog(taskId);
+      if (logTimer) clearInterval(logTimer);
+      logTimer = setInterval(() => fetchLog(taskId), 1500);
+    }
+
+    async function fetchLog(taskId) {
+      try {
+        const resp = await fetch(API.taskLog(taskId));
+        if (!resp.ok) { taskLogBody.textContent = "(日志暂不可用)"; return; }
+        const text = await resp.text();
+        if (text) {
+          taskLogBody.textContent = text;
+          taskLogBody.scrollTop = taskLogBody.scrollHeight;
+        }
+      } catch (_) {}
+    }
+
+    // ====== Auto-detect active tasks ======
+    async function autoDetect() {
+      try {
+        for (const st of ["running", "queued"]) {
+          const resp = await fetch(API.tasks + `&status=${st}`);
+          if (!resp.ok) continue;
+          const tasks = await resp.json();
+          if (Array.isArray(tasks) && tasks.length > 0) {
+            selectTask(tasks[0].task_id);
+            return;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // ====== Init ======
+    document.getElementById("refreshTasksBtn").addEventListener("click", () => {
+      refreshTaskList();
+      refreshPipelineStatus();
+      refreshQcRanking();
+    });
+
+    refreshPipelineStatus();
+    refreshQcRanking();
+    refreshTaskList();
+    autoDetect();
+
+    setInterval(() => {
+      refreshPipelineStatus();
+      refreshQcRanking();
+      refreshTaskList();
+    }, 10000);
+  </script>
+</body>
+</html>

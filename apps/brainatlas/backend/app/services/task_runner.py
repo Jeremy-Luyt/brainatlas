@@ -6,6 +6,7 @@ task_runner.py — 后台任务执行器
 - 写入结构化日志文件
 - 完成后更新 task 和 sample 状态
 - 统一的异常处理
+- 使用信号量控制重型任务并发（如配准 exe 限 1 个同时执行）
 
 用法：
     from .task_runner import submit_task
@@ -26,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 # 注册的任务处理函数
 _handlers: dict[str, Callable[..., dict[str, Any]]] = {}
+
+# ---------------------------------------------------------------------------
+#  并发控制：重型任务（如配准 exe）同时只允许 1 个执行
+# ---------------------------------------------------------------------------
+_heavy_semaphore = threading.Semaphore(1)
+_HEAVY_TASK_TYPES: set[str] = {"global_registration"}
 
 
 class TaskLogger:
@@ -85,15 +92,31 @@ def _run_task(
     project_id: str,
     payload: dict[str, Any],
 ) -> None:
-    """线程入口：执行任务并管理生命周期"""
+    """线程入口：执行任务并管理生命周期（重型任务串行执行）"""
     log_path = task_log_path(project_id, task_id)
     tl = TaskLogger(log_path)
 
+    is_heavy = task_type in _HEAVY_TASK_TYPES
+
     try:
+        # 重型任务先设为 queued 并排队等待信号量
+        if is_heavy:
+            update_task(
+                task_id,
+                status="queued",
+                progress="waiting",
+                log_file=str(log_path),
+                project_id=project_id,
+            )
+            tl.info(f"Task queued: type={task_type}, id={task_id} (waiting for slot)")
+            _heavy_semaphore.acquire()
+            tl.info("Slot acquired, starting execution")
+
         # 更新状态为 running
         update_task(
             task_id,
             status="running",
+            progress="running",
             log_file=str(log_path),
             project_id=project_id,
         )
@@ -133,4 +156,6 @@ def _run_task(
         except Exception:
             pass
     finally:
+        if is_heavy:
+            _heavy_semaphore.release()
         tl.close()

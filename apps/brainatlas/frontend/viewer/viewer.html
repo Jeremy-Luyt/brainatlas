@@ -354,17 +354,179 @@
     option:disabled {
       color: #64748b;
     }
+
+    /* ---------- 样本列表 ---------- */
+    .sample-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 0;
+    }
+    .sample-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.7);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: all 150ms ease;
+      font-size: 12px;
+    }
+    .sample-item:hover {
+      background: rgba(15,23,42,0.95);
+      border-color: rgba(56,189,248,0.3);
+    }
+    .sample-item.active {
+      background: rgba(56,189,248,0.1);
+      border-color: rgba(56,189,248,0.6);
+      box-shadow: 0 0 12px rgba(56,189,248,0.2);
+    }
+    .sample-item .s-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sample-item .s-dot.indexed  { background: #94a3b8; }
+    .sample-item .s-dot.pending  { background: #facc15; }
+    .sample-item .s-dot.ready    { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+    .sample-item .s-dot.running  { background: #38bdf8; animation: pulse-dot 1.2s infinite; }
+    .sample-item .s-name {
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sample-item .s-status {
+      font-size: 10px; color: var(--text-muted); white-space: nowrap;
+    }
+
+    /* ---------- 浮动日志窗口 ---------- */
+    .float-log {
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
+      width: 480px;
+      max-height: 320px;
+      background: rgba(2,6,23,0.96);
+      border: 1px solid rgba(56,189,248,0.4);
+      border-radius: 14px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      backdrop-filter: blur(12px);
+    }
+    .float-log.visible { display: flex; }
+    .float-log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-soft);
+      cursor: move;
+      user-select: none;
+    }
+    .float-log-header span { font-size: 12px; font-weight: 500; }
+    .float-log-close {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; font-size: 16px; padding: 0 4px;
+    }
+    .float-log-close:hover { color: var(--danger); }
+    .float-log-body {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-family: 'Cascadia Code','Fira Code','Consolas',monospace;
+      font-size: 11px;
+      line-height: 1.55;
+      color: #a5f3fc;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 260px;
+    }
+    .float-log-body:empty::after {
+      content: '暂无日志 — 启动任务后自动显示';
+      color: var(--text-muted);
+    }
+    .float-log-body .log-error { color: #fb7185; }
+    .float-log-body .log-ts { color: #64748b; }
+
+    /* ---------- QC 质量评估 ---------- */
+    .qc-score-big {
+      font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .qc-level-tag {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; margin-left: 8px;
+    }
+    .qc-level-tag.excellent { background: rgba(34,197,94,0.15); color: #22c55e; }
+    .qc-level-tag.good      { background: rgba(56,189,248,0.15); color: #38bdf8; }
+    .qc-level-tag.review    { background: rgba(250,204,21,0.15); color: #facc15; }
+    .qc-level-tag.reject    { background: rgba(251,113,133,0.15); color: #fb7185; }
+    .qc-sub-tags {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+    }
+    .qc-sub-tag {
+      display: inline-block; padding: 2px 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 500; border: 1px solid;
+    }
+    .qc-review-btns { display: flex; gap: 6px; margin-bottom: 8px; }
+    .qc-review-btns .btn { flex: 1; font-size: 11px; }
+    .qc-comment {
+      width: 100%; background: #0a0f1a; border: 1px solid var(--border-soft);
+      border-radius: 6px; color: var(--text-main); padding: 6px; font-size: 11px;
+      resize: vertical; font-family: inherit;
+    }
+    .info-panel {
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
   </style>
 </head>
 <body>
+  <!-- Mini nav bar -->
+  <nav style="position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:999;
+    display:flex; gap:4px; padding:4px 8px; border-radius:12px;
+    background:rgba(15,23,42,0.85); border:1px solid rgba(55,65,81,0.5);
+    backdrop-filter:blur(14px); box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+    <a href="/upload" style="padding:5px 12px; border-radius:8px; font-size:11px;
+      color:#9ca3af; text-decoration:none; transition:all 0.15s;
+      display:flex; align-items:center; gap:5px;"
+      onmouseover="this.style.background='rgba(56,189,248,0.1)';this.style.color='#e5e7eb'"
+      onmouseout="this.style.background='';this.style.color='#9ca3af'">
+      📤 上传</a>
+    <a href="/monitor" style="padding:5px 12px; border-radius:8px; font-size:11px;
+      color:#9ca3af; text-decoration:none; transition:all 0.15s;
+      display:flex; align-items:center; gap:5px;"
+      onmouseover="this.style.background='rgba(56,189,248,0.1)';this.style.color='#e5e7eb'"
+      onmouseout="this.style.background='';this.style.color='#9ca3af'">
+      📊 监控</a>
+    <a href="/viewer" style="padding:5px 12px; border-radius:8px; font-size:11px;
+      color:#22d3ee; text-decoration:none;
+      background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3);
+      display:flex; align-items:center; gap:5px;">
+      🧠 查看器</a>
+  </nav>
+
   <div class="layout">
-    <!-- 左侧面板：控制与检索 -->
+    <!-- 左侧面板：样本列表 + 视图控制 -->
     <section class="panel">
       <div class="panel-header">
-        <div class="panel-title"><span>🔍</span> 视图控制</div>
+        <div class="panel-title"><span>🧠</span> 样本列表</div>
         <button id="backToUploadBtn" class="btn" style="font-size:12px; padding:5px 10px; border-radius:6px;" title="返回上传页面">← 上传</button>
       </div>
-      <div class="panel-body">
+      <div style="margin-bottom:8px; font-size:11px; color:var(--text-muted);">
+        点击切换样本 · 配准运行中可随时浏览其他已完成的数据
+      </div>
+      <div class="sample-list" id="sample-list">
+        <!-- 动态填充 -->
+      </div>
+
+      <div style="margin-top:10px; border-top:1px solid var(--border-soft); padding-top:10px;">
+        <div class="panel-title" style="margin-bottom:8px;"><span>🔍</span> 视图控制</div>
         <div class="field-group">
           <div class="field-label">显示模式</div>
           <select id="viewMode">
@@ -505,11 +667,42 @@
           </div>
         </div>
 
-        <div style="margin-top:10px; display:flex; gap:8px;">
-          <button id="refresh-btn" class="btn btn-primary" style="flex:1;">刷新数据</button>
+        <!-- QC 质量评估 -->
+        <div class="info-section" id="qc-section" style="display:none;">
+          <div class="info-title">🔬 Global QC</div>
+          <div class="info-item">
+            <div class="info-label">综合评分</div>
+            <div class="info-value">
+              <span class="qc-score-big" id="qc-score">-</span>
+              <span class="qc-level-tag" id="qc-level-tag">-</span>
+            </div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">可用于模板构建</div>
+            <div class="info-value" id="qc-usable">-</div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">分项评分</div>
+            <div class="qc-sub-tags" id="qc-subscores"></div>
+          </div>
+          <div style="margin-top:10px; border-top:1px solid var(--border-soft); padding-top:8px;">
+            <div class="info-label" style="margin-bottom:6px;">人工确认</div>
+            <div id="qc-review-status" style="margin-bottom:6px; font-size:12px;">-</div>
+            <div class="qc-review-btns">
+              <button class="btn" id="btn-approve" style="background:rgba(34,197,94,0.12); border-color:rgba(34,197,94,0.45); color:#22c55e;">✅ 通过</button>
+              <button class="btn" id="btn-reject" style="background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.45); color:#fb7185;">❌ 拒绝</button>
+              <button class="btn" id="btn-needs-check" style="background:rgba(250,204,21,0.12); border-color:rgba(250,204,21,0.45); color:#facc15;">⚠️ 待查</button>
+            </div>
+            <textarea class="qc-comment" id="qc-comment" placeholder="备注（可选）" rows="2"></textarea>
+          </div>
         </div>
 
-        <!-- 任务日志面板 -->
+        <div style="margin-top:10px; display:flex; gap:8px;">
+          <button id="refresh-btn" class="btn btn-primary" style="flex:1;">刷新数据</button>
+          <button id="show-log-btn" class="btn" style="flex:0 0 auto;" title="打开浮动日志窗口">📋 日志</button>
+        </div>
+
+        <!-- 内嵌任务日志（保留兼容） -->
         <div class="log-section" id="log-section">
           <div class="log-header" id="log-toggle">
             <span style="font-size:13px; font-weight:600; color:var(--accent);">📋 任务日志</span>
@@ -521,9 +714,22 @@
     </section>
   </div>
 
+  <!-- 浮动日志窗口（独立于右侧面板，配准时可随时查看） -->
+  <div class="float-log" id="float-log">
+    <div class="float-log-header" id="float-log-header">
+      <span>📋 任务实时日志</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="font-size:10px; color:var(--text-muted);" id="float-log-task-id"></span>
+        <button class="float-log-close" id="float-log-close">✕</button>
+      </div>
+    </div>
+    <div class="float-log-body" id="float-log-body"></div>
+  </div>
+
   <script>
     const query = new URLSearchParams(window.location.search);
     let sampleId = query.get("sample_id");
+    const queryTaskId = query.get("task_id") || "";
     if (!sampleId) {
       try {
         sampleId = localStorage.getItem("brainatlas_last_sample_id") || "";
@@ -805,9 +1011,14 @@
         const resp = await fetch(`/api/tasks/${activeTaskId}/log?tail=200`);
         if (resp.ok) {
           const text = await resp.text();
+          // 更新内嵌日志
           const el = document.getElementById('log-body');
           el.innerHTML = colorizeLog(text) || '';
           el.scrollTop = el.scrollHeight;
+          // 同步更新浮动日志
+          const floatBody = document.getElementById('float-log-body');
+          floatBody.innerHTML = colorizeLog(text) || '';
+          floatBody.scrollTop = floatBody.scrollHeight;
         }
         // 同时刷新任务状态
         const tResp = await fetch(`/api/tasks/${activeTaskId}`);
@@ -817,8 +1028,7 @@
           // 任务结束时停止轮询并刷新样本
           if (task.status === 'completed' || task.status === 'failed') {
             stopLogPolling();
-            // 延迟一下再刷新样本数据
-            setTimeout(loadSample, 1000);
+            setTimeout(() => { loadSample(); loadSampleList(); }, 1000);
           }
         }
       } catch (e) {
@@ -845,7 +1055,10 @@
       stopLogPolling();
       activeTaskId = taskId;
       document.getElementById('info-task-id').textContent = taskId;
-      // 立即展开日志
+      document.getElementById('float-log-task-id').textContent = taskId.slice(0, 12) + '…';
+      // 自动打开浮动日志
+      document.getElementById('float-log').classList.add('visible');
+      // 也展开内嵌日志
       if (!logExpanded) {
         document.getElementById('log-toggle').click();
       }
@@ -860,22 +1073,157 @@
       }
     }
 
-    // ---------- 增强 loadSample：渲染 badge ----------
+    // ---------- 浮动日志窗口 ----------
+    document.getElementById('show-log-btn').addEventListener('click', () => {
+      document.getElementById('float-log').classList.toggle('visible');
+    });
+    document.getElementById('float-log-close').addEventListener('click', () => {
+      document.getElementById('float-log').classList.remove('visible');
+    });
+    // 简易拖拽
+    (function() {
+      const logWin = document.getElementById('float-log');
+      const header = document.getElementById('float-log-header');
+      let dragging = false, ox = 0, oy = 0;
+      header.addEventListener('mousedown', (e) => {
+        dragging = true;
+        ox = e.clientX - logWin.getBoundingClientRect().left;
+        oy = e.clientY - logWin.getBoundingClientRect().top;
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', () => { dragging = false; document.removeEventListener('mousemove', onMove); }, { once: true });
+      });
+      function onMove(e) {
+        if (!dragging) return;
+        logWin.style.left = (e.clientX - ox) + 'px';
+        logWin.style.top = (e.clientY - oy) + 'px';
+        logWin.style.right = 'auto';
+        logWin.style.bottom = 'auto';
+      }
+    })();
+
+    // ---------- 样本列表 ----------
+    const sampleListEl = document.getElementById('sample-list');
+
+    async function loadSampleList() {
+      try {
+        const resp = await fetch('/api/projects/default');
+        if (!resp.ok) return;
+        const project = await resp.json();
+        const samples = project.samples || [];
+        sampleListEl.innerHTML = '';
+        if (samples.length === 0) {
+          sampleListEl.innerHTML = '<div style="font-size:11px; color:var(--text-muted); text-align:center; padding:20px;">暂无样本<br/>请从上传页面添加</div>';
+          return;
+        }
+        for (const s of samples) {
+          const isActive = s.sample_id === sampleId;
+          const statusMap = {
+            'indexed': 'indexed', 'pending': 'pending', 'running': 'running',
+            'completed': 'ready', 'ready': 'ready', 'failed': 'pending',
+          };
+          const dotCls = statusMap[s.prepare_status] || 'pending';
+          const statusLabel = {
+            'indexed': '已索引', 'pending': '待处理', 'running': '处理中',
+            'completed': '就绪', 'ready': '就绪', 'failed': '失败',
+          }[s.prepare_status] || s.prepare_status;
+
+          const item = document.createElement('div');
+          item.className = 'sample-item' + (isActive ? ' active' : '');
+          item.innerHTML = `<span class="s-dot ${dotCls}"></span><span class="s-name" title="${s.filename || s.sample_id}">${s.filename || s.sample_id}</span><span class="s-status">${statusLabel}</span>`;
+          item.addEventListener('click', () => {
+            sampleId = s.sample_id;
+            try { localStorage.setItem('brainatlas_last_sample_id', sampleId); } catch(_) {}
+            // 更新高亮
+            sampleListEl.querySelectorAll('.sample-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            // 不中断正在运行的任务轮询，只加载新样本的数据查看
+            loadSample();
+          });
+          sampleListEl.appendChild(item);
+        }
+      } catch (e) {
+        console.warn('加载样本列表失败:', e);
+      }
+    }
+
+    // ---------- QC 渲染 & 交互 ----------
+    const levelColors  = { excellent: '#22c55e', good: '#38bdf8', review: '#facc15', reject: '#fb7185' };
+    const levelLabels  = { excellent: '优秀', good: '良好', review: '需复查', reject: '不合格' };
+    const subLabels    = { files: '文件', stats: '统计', volume: '体积', boundary: '边界', symmetry: '对称', sharpness: '清晰' };
+    const reviewLabels = { pending: '⏳ 待确认', approved: '✅ 已通过', rejected: '❌ 已拒绝', needs_check: '⚠️ 待查' };
+
+    function renderQC(qc) {
+      const sec = document.getElementById('qc-section');
+      if (!qc || qc.status !== 'completed') { sec.style.display = 'none'; return; }
+      sec.style.display = 'block';
+
+      // 综合分
+      document.getElementById('qc-score').textContent = (qc.score * 100).toFixed(1);
+      const tag = document.getElementById('qc-level-tag');
+      tag.textContent = levelLabels[qc.qc_level] || qc.qc_level;
+      tag.className = 'qc-level-tag ' + (qc.qc_level || '');
+
+      // 模板可用
+      document.getElementById('qc-usable').innerHTML = qc.usable_for_template
+        ? '<span style="color:#22c55e;">✅ 是</span>'
+        : '<span style="color:#fb7185;">❌ 否</span>';
+
+      // 分项
+      const box = document.getElementById('qc-subscores');
+      box.innerHTML = '';
+      for (const [k, v] of Object.entries(qc.subscores || {})) {
+        const pct = (v * 100).toFixed(0);
+        const c = v >= 0.85 ? '#22c55e' : v >= 0.7 ? '#38bdf8' : v >= 0.55 ? '#facc15' : '#fb7185';
+        box.innerHTML += `<span class="qc-sub-tag" style="background:${c}15; color:${c}; border-color:${c}40;">${subLabels[k] || k} ${pct}%</span>`;
+      }
+
+      // 人工确认
+      const rv = qc.manual_review || {};
+      document.getElementById('qc-review-status').textContent = reviewLabels[rv.status] || rv.status || '-';
+      document.getElementById('qc-comment').value = rv.comment || '';
+    }
+
+    async function submitReview(status) {
+      if (!sampleId) return;
+      const comment = document.getElementById('qc-comment').value;
+      const r = await fetch(`/api/samples/${sampleId}/qc/manual-review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, comment }),
+      });
+      if (!r.ok) { const e = await r.json(); alert('提交失败: ' + (e.detail || r.statusText)); return; }
+      renderQC(await r.json());
+    }
+
+    document.getElementById('btn-approve').addEventListener('click', () => submitReview('approved'));
+    document.getElementById('btn-reject').addEventListener('click', () => submitReview('rejected'));
+    document.getElementById('btn-needs-check').addEventListener('click', () => submitReview('needs_check'));
+
+    // ---------- 增强 loadSample：渲染 badge + QC ----------
     const _origLoadSample = loadSample;
     loadSample = async function() {
       await _origLoadSample();
       if (currentSample) {
         document.getElementById('info-prepare').innerHTML = renderBadge(currentSample.prepare_status);
         document.getElementById('info-reg').innerHTML = renderBadge(currentSample.global_registration_status);
+        // QC
+        renderQC(currentSample.global_qc);
+
+        // 日志轮询：优先 URL task_id，其次样本记录中的 global task_id
+        const taskIdFromSample = currentSample.global_registration?.task_id || '';
+        const preferredTaskId = queryTaskId || taskIdFromSample;
+        if (preferredTaskId && activeTaskId !== preferredTaskId) {
+          startLogPolling(preferredTaskId);
+        }
       }
     };
 
-    // 暴露 startLogPolling 给外部（如 upload 页面通过 postMessage 通知）
+    // 暴露接口给外部
     window.brainatlasViewer = { startLogPolling, stopLogPolling };
 
     // 初始加载
     (async () => {
       await ensureNiivueReady();
+      await loadSampleList();
       await loadSample();
     })();
   </script>

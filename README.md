@@ -406,9 +406,8 @@ project:
 - [x] 项目级管理与索引
 - [ ] Local Registration 集成
 - [ ] Template 构建流程
-- [ ] 多样本批量处理
 - [ ] WebSocket 实时日志推送
-- [ ] 用户认证与权限管理
+
 
 ---
 

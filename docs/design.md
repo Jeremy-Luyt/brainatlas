@@ -190,6 +190,4 @@ Handler 签名：`(payload: dict, task_logger: TaskLogger) -> dict`
 
 - [ ] Local Registration 集成
 - [ ] Template 构建流程
-- [ ] 多样本批量处理
 - [ ] WebSocket 实时日志推送（替代轮询）
-- [ ] 用户认证与权限管理

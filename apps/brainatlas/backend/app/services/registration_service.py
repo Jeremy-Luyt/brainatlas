@@ -20,6 +20,7 @@ from pipeline.io import read_v3draw, save_nifti
 from pipeline.preprocess.build_previews import build_previews_from_volume
 from pipeline.wrappers.global_registration import run_global_registration
 from ..services.sample_service import get_sample, get_sample_dir, update_sample
+from ..services.qc_service import run_sample_qc
 from ..utils.paths import data_root, project_workspace
 
 
@@ -141,7 +142,7 @@ def run_global_registration_task(
     # 2. 调用 exe
     task_logger.info("Calling GlobalRegistration_LYT.exe ...")
     result = run_global_registration(moving=moving, fixed=fixed, output_dir=output_dir)
-    task_logger.info(f"Exe finished. Output files: {list(result.get('output_files', {}).keys())}")
+    task_logger.info(f"Exe finished. Output: {result.get('binary_output_path', '')}")
 
     # 3. v3draw → nii.gz + preview
     global_v3draw = Path(result["binary_output_path"])
@@ -163,10 +164,26 @@ def run_global_registration_task(
     task_logger.info(f"Sample {moving_sample_id} updated: global_registration_status=completed")
     task_logger.info(f"  global_nii_url = {global_reg_data['global_nii_url']}")
 
+    # 6. 自动运行 QC
+    import sys
+    print(f"[registration_service] step 6: auto QC for {moving_sample_id}", file=sys.stderr, flush=True)
+    task_logger.info("--- Step 6: auto QC begin ---")
+    qc_info = None
+    try:
+        task_logger.info("Running auto QC ...")
+        qc_result = run_sample_qc(moving_sample_id)
+        qc_info = {"score": qc_result.get("score"), "qc_level": qc_result.get("qc_level")}
+        task_logger.info(f"QC done: score={qc_result.get('score')}, level={qc_result.get('qc_level')}")
+    except Exception as qc_exc:
+        task_logger.error(f"Auto QC failed: {qc_exc}")
+        import traceback
+        task_logger.error(traceback.format_exc())
+
     return {
         "sample_id": moving_sample_id,
         "global_nii_url": global_reg_data["global_nii_url"],
         "output_dir": str(output_dir),
+        "qc": qc_info,
     }
 
 
