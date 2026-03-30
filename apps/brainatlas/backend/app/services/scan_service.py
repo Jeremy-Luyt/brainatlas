@@ -1,13 +1,4 @@
-"""
-scan_service.py — 文件夹扫描 + 懒加载索引
-
-设计原则：
-- 用户给定文件夹路径，扫描出所有支持的脑影像文件
-- 只创建 sample 索引（sample.json），**不读取**文件内容
-- 状态设为 "indexed"：仅知道文件路径，未进行任何 I/O
-- 后续用到哪个脑，才按需触发 prepare（转换 + 预览）
-- 这样数十乃至上百个脑文件也不会占内存
-"""
+"""文件夹扫描与懒加载索引"""
 from pathlib import Path
 from typing import Any
 

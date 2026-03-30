@@ -1,16 +1,4 @@
-"""
-registration_service.py — 配准业务逻辑
-
-职责：
-- run_global_registration_task(): 后台任务处理器（由 task_runner 调用）
-- _convert_and_preview(): v3draw → nii.gz + 预览图
-- _to_static_url(): 绝对路径 → 静态 URL
-- hydrate_global_registration(): 从磁盘恢复 sample 的配准结果
-
-设计原则：
-- 纯业务函数，不涉及路由/HTTP
-- 所有副作用（update_sample）在本模块内完成
-"""
+"""配准业务逻辑"""
 from __future__ import annotations
 
 from pathlib import Path

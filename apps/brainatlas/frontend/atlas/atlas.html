@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>BrainAtlas · 脑图谱</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/static/brainatlas-logo.png" type="image/png" />
+  <style>
+    :root {
+      --bg: #020617;
+      --surface: rgba(15,23,42,0.92);
+      --surface-hover: rgba(15,23,42,0.98);
+      --border: rgba(56,189,248,0.12);
+      --border-active: rgba(56,189,248,0.45);
+      --accent: #22d3ee;
+      --accent-dim: rgba(34,211,238,0.15);
+      --purple: #a78bfa;
+      --green: #34d399;
+      --text: #e2e8f0;
+      --text2: #94a3b8;
+      --text3: #64748b;
+      --radius: 14px;
+      --radius-sm: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      height: 100vh; overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* ── Full-screen canvas ── */
+    #viewer-canvas {
+      position: fixed; inset: 0; z-index: 0;
+      width: 100vw; height: 100vh;
+      background: #000;
+    }
+
+    /* ── Floating nav ── */
+    .nav {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 100;
+      display: flex; gap: 2px; padding: 4px 6px;
+      background: rgba(2,6,23,0.75); border: 1px solid var(--border);
+      border-radius: 12px; backdrop-filter: blur(20px);
+    }
+    .nav a {
+      padding: 6px 14px; border-radius: 8px; font-size: 12px;
+      color: var(--text2); text-decoration: none; transition: all .15s;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .nav a:hover { background: var(--accent-dim); color: var(--text); }
+    .nav a.active { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border-active); }
+
+    /* ── Floating sidebar ── */
+    .sidebar {
+      position: fixed; left: 16px; top: 64px; bottom: 16px; z-index: 50;
+      width: 240px;
+      background: rgba(2,6,23,0.82);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(24px);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: transform .3s ease, opacity .3s ease;
+    }
+    .sidebar.collapsed { transform: translateX(-260px); opacity: 0; pointer-events: none; }
+
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sidebar-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .sidebar-toggle {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text2); cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .sidebar-toggle:hover { background: var(--accent-dim); color: var(--accent); }
+
+    /* ── Version list ── */
+    .ver-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 3px; }
+    .ver-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      background: transparent; border: 1px solid transparent;
+      cursor: pointer; transition: all .15s; font-size: 12px;
+    }
+    .ver-item:hover { background: rgba(56,189,248,0.06); border-color: var(--border); }
+    .ver-item.active { background: var(--accent-dim); border-color: var(--border-active); }
+    .ver-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .ver-dot.v0   { background: #64748b; }
+    .ver-dot.iter { background: var(--accent); box-shadow: 0 0 8px rgba(34,211,238,0.5); }
+    .ver-dot.conv { background: var(--green); box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+    .ver-name { font-weight: 600; color: var(--text); }
+    .ver-sub  { font-size: 10px; color: var(--text3); margin-top: 1px; }
+    .ver-tag {
+      margin-left: auto; font-size: 9px; padding: 2px 8px;
+      border-radius: 99px; font-weight: 500;
+    }
+    .ver-tag.t0   { background: rgba(100,116,139,0.15); color: #94a3b8; }
+    .ver-tag.iter { background: var(--accent-dim); color: var(--accent); }
+    .ver-tag.conv { background: rgba(52,211,153,0.12); color: var(--green); }
+
+    /* ── Convergence mini chart ── */
+    .conv-box {
+      padding: 12px 16px; border-top: 1px solid var(--border);
+    }
+    .conv-title { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+    .conv-chart { width: 100%; height: 70px; }
+    .conv-chart svg { width: 100%; height: 100%; }
+
+    /* ── Floating controls (bottom-right) ── */
+    .controls {
+      position: fixed; right: 16px; bottom: 16px; z-index: 50;
+      display: flex; gap: 6px; align-items: flex-end;
+    }
+    .ctrl-panel {
+      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); backdrop-filter: blur(24px);
+      padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .ctrl-row { display: flex; align-items: center; gap: 8px; }
+    .ctrl-label { font-size: 10px; color: var(--text3); min-width: 40px; }
+    .ctrl-select {
+      background: rgba(15,23,42,0.9); border: 1px solid var(--border);
+      color: var(--text); font-size: 11px; padding: 4px 8px;
+      border-radius: 6px; outline: none; cursor: pointer;
+    }
+    .ctrl-select:focus { border-color: var(--accent); }
+    .ctrl-btn {
+      background: rgba(15,23,42,0.9); border: 1px solid var(--border);
+      color: var(--text2); font-size: 11px; padding: 5px 10px;
+      border-radius: 6px; cursor: pointer; transition: all .15s;
+    }
+    .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .ctrl-btn.active { background: var(--accent-dim); border-color: var(--border-active); color: var(--accent); }
+
+    /* ── Floating status badge (top-left of canvas) ── */
+    .status-badge {
+      position: fixed; left: 272px; top: 72px; z-index: 40;
+      padding: 6px 14px; border-radius: 8px;
+      background: rgba(2,6,23,0.7); border: 1px solid var(--border);
+      font-size: 11px; color: var(--text2);
+      backdrop-filter: blur(12px); transition: left .3s ease;
+    }
+    .status-badge.expanded { left: 272px; }
+    .status-badge.compact { left: 24px; }
+
+    /* ── Sidebar reopen button (when collapsed) ── */
+    .sidebar-reopen {
+      position: fixed; left: 16px; top: 64px; z-index: 51;
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      color: var(--text2); font-size: 16px; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .sidebar-reopen:hover { background: var(--accent-dim); color: var(--accent); }
+    .sidebar-reopen.show { display: flex; }
+
+    /* ── Version detail overlay (bottom-left) ── */
+    .detail-bar {
+      position: fixed; left: 272px; bottom: 16px; z-index: 50;
+      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); backdrop-filter: blur(24px);
+      padding: 12px 18px; display: flex; gap: 24px; align-items: center;
+      font-size: 11px; transition: left .3s ease, opacity .3s ease;
+    }
+    .detail-bar.compact { left: 24px; }
+    .detail-item { display: flex; flex-direction: column; gap: 2px; }
+    .detail-label { color: var(--text3); font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
+    .detail-value { color: var(--text); font-weight: 500; }
+
+    /* ── Empty state ── */
+    .empty-overlay {
+      position: fixed; inset: 0; z-index: 80;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(2,6,23,0.95);
+    }
+    .empty-overlay.show { display: flex; }
+    .empty-card {
+      text-align: center; max-width: 380px;
+      padding: 48px 32px; border-radius: 20px;
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.6; }
+    .empty-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+    .empty-hint { font-size: 13px; color: var(--text2); line-height: 1.8; }
+    .empty-hint a { color: var(--accent); text-decoration: none; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--text3); border-radius: 2px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body>
+
+<!-- Full-screen NiiVue canvas -->
+<canvas id="viewer-canvas"></canvas>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="/upload">📤 上传</a>
+  <a href="/monitor">📊 监控</a>
+  <a href="/viewer">🧠 查看器</a>
+  <a href="/atlas" class="active">🗺️ 图谱</a>
+</nav>
+
+<!-- Sidebar reopen button -->
+<button class="sidebar-reopen" id="sidebarReopen" title="展开侧栏">◀</button>
+
+<!-- Sidebar: version list + convergence -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-title">🗺️ 图谱版本</div>
+    <button class="sidebar-toggle" id="sidebarClose" title="收起">✕</button>
+  </div>
+  <div class="ver-list" id="verList"></div>
+  <div class="conv-box" id="convBox" style="display:none;">
+    <div class="conv-title">收敛趋势</div>
+    <div class="conv-chart" id="convChart"></div>
+  </div>
+</aside>
+
+<!-- Status badge -->
+<div class="status-badge expanded" id="statusBadge">加载中…</div>
+
+<!-- Version detail bar -->
+<div class="detail-bar" id="detailBar" style="display:none;">
+  <div class="detail-item">
+    <div class="detail-label">版本</div>
+    <div class="detail-value" id="detVer">-</div>
+  </div>
+  <div class="detail-item">
+    <div class="detail-label">来源</div>
+    <div class="detail-value" id="detSrc">-</div>
+  </div>
+  <div class="detail-item">
+    <div class="detail-label">样本数</div>
+    <div class="detail-value" id="detN">-</div>
+  </div>
+  <div class="detail-item" id="detDeltaWrap" style="display:none;">
+    <div class="detail-label">收敛 Δ</div>
+    <div class="detail-value" id="detDelta">-</div>
+  </div>
+  <div class="detail-item" id="detConvWrap" style="display:none;">
+    <div class="detail-label">状态</div>
+    <div class="detail-value" id="detConv">-</div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <div class="ctrl-panel">
+    <div class="ctrl-row">
+      <span class="ctrl-label">视图</span>
+      <select class="ctrl-select" id="viewMode">
+        <option value="4">3D 渲染</option>
+        <option value="3">三切面</option>
+        <option value="0">轴向 Axial</option>
+        <option value="1">冠状 Coronal</option>
+        <option value="2">矢状 Sagittal</option>
+      </select>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">色表</span>
+      <select class="ctrl-select" id="colorMap">
+        <option value="gray">Gray</option>
+        <option value="hot">Hot</option>
+        <option value="jet">Jet</option>
+        <option value="winter">Winter</option>
+        <option value="cool">Cool</option>
+      </select>
+    </div>
+    <div class="ctrl-row" style="justify-content:flex-end; gap:4px;">
+      <button class="ctrl-btn" id="btnReset" title="重置视角">↻ 重置</button>
+      <button class="ctrl-btn" id="btnClip" title="切面裁剪开关">✂ 裁剪</button>
+    </div>
+  </div>
+</div>
+
+<!-- Empty state -->
+<div class="empty-overlay" id="emptyState">
+  <div class="empty-card">
+    <div class="empty-icon">🗺️</div>
+    <div class="empty-title">尚未构建脑图谱</div>
+    <div class="empty-hint">
+      请先在 <a href="/upload">上传页面</a> 上传样本数据<br/>并启动模板构建流程
+    </div>
+  </div>
+</div>
+
+<script>
+// ======== State ========
+let versions = [];
+let activeVersion = null;
+let nv = null;
+let clipOn = false;
+
+const badge = document.getElementById('statusBadge');
+const sidebar = document.getElementById('sidebar');
+const reopenBtn = document.getElementById('sidebarReopen');
+
+// ======== Sidebar toggle ========
+document.getElementById('sidebarClose').onclick = () => {
+  sidebar.classList.add('collapsed');
+  reopenBtn.classList.add('show');
+  badge.classList.replace('expanded','compact');
+  document.getElementById('detailBar').classList.add('compact');
+};
+reopenBtn.onclick = () => {
+  sidebar.classList.remove('collapsed');
+  reopenBtn.classList.remove('show');
+  badge.classList.replace('compact','expanded');
+  document.getElementById('detailBar').classList.remove('compact');
+};
+
+// ======== NiiVue ========
+async function loadScript(urls) {
+  for (const url of urls) {
+    try {
+      await new Promise((res, rej) => {
+        if (document.querySelector(`script[data-src="${url}"]`)) {
+          if (window.niivue?.Niivue) { res(); return; }
+        }
+        const s = document.createElement('script');
+        s.src = url; s.async = true; s.dataset.src = url;
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      if (window.niivue?.Niivue) return true;
+    } catch (_) {}
+  }
+  return false;
+}
+
+async function initNiivue() {
+  badge.textContent = '3D 组件加载中…';
+  if (!window.niivue?.Niivue) {
+    const ok = await loadScript([
+      '/static/vendor/niivue.umd.js',
+      'https://cdn.jsdelivr.net/npm/@niivue/niivue@0.64.0/dist/niivue.umd.js',
+      'https://unpkg.com/@niivue/niivue@0.64.0/dist/niivue.umd.js'
+    ]);
+    if (!ok) { badge.textContent = '3D 组件加载失败'; return false; }
+  }
+  nv = new niivue.Niivue({
+    backColor: [0.01, 0.02, 0.05, 1],
+    show3Dcrosshair: false,
+    isRadiologicalConvention: false,
+  });
+  nv.attachTo('viewer-canvas');
+  nv.setSliceType(nv.sliceTypeRender);
+  badge.textContent = '3D 组件就绪';
+  return true;
+}
+
+// ======== Controls ========
+document.getElementById('viewMode').onchange = e => {
+  if (!nv) return;
+  nv.setSliceType(parseInt(e.target.value));
+};
+document.getElementById('colorMap').onchange = e => {
+  if (!nv?.volumes?.length) return;
+  nv.volumes[0].colormap = e.target.value;
+  nv.updateGLVolume();
+};
+document.getElementById('btnReset').onclick = () => {
+  if (!nv) return;
+  document.getElementById('viewMode').value = '4';
+  nv.setSliceType(nv.sliceTypeRender);
+};
+document.getElementById('btnClip').onclick = () => {
+  if (!nv) return;
+  clipOn = !clipOn;
+  const btn = document.getElementById('btnClip');
+  btn.classList.toggle('active', clipOn);
+  nv.setClipPlane(clipOn ? [0, 270, 0] : [-2, 0, 0]);
+};
+
+// ======== API ========
+async function fetchVersions() {
+  try {
+    const r = await fetch('/api/template/versions?project_id=default');
+    if (!r.ok) return [];
+    return (await r.json()).versions || [];
+  } catch { return []; }
+}
+async function fetchDetail(ver) {
+  try {
+    const r = await fetch(`/api/template/versions/${ver}?project_id=default`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch { return null; }
+}
+
+// ======== Version list ========
+function renderVersionList() {
+  const el = document.getElementById('verList');
+  el.innerHTML = '';
+  for (const v of versions) {
+    const isActive = activeVersion === v.version;
+    const isV0 = v.version === 0;
+    const conv = v.converged;
+    const dotCls = isV0 ? 'v0' : (conv ? 'conv' : 'iter');
+    const tagCls = isV0 ? 't0' : (conv ? 'conv' : 'iter');
+    const tagText = isV0 ? 'T0' : (conv ? '已收敛' : `iter ${v.version}`);
+    const sub = isV0 ? '初始模板' :
+      (v.convergence_delta != null ? `Δ ${v.convergence_delta.toFixed(2)}` : '');
+
+    const item = document.createElement('div');
+    item.className = 'ver-item' + (isActive ? ' active' : '');
+    item.innerHTML = `
+      <span class="ver-dot ${dotCls}"></span>
+      <div>
+        <div class="ver-name">v${v.version}</div>
+        <div class="ver-sub">${sub}</div>
+      </div>
+      <span class="ver-tag ${tagCls}">${tagText}</span>`;
+    item.onclick = () => selectVersion(v.version);
+    el.appendChild(item);
+  }
+}
+
+// ======== Select version ========
+async function selectVersion(ver) {
+  activeVersion = ver;
+  renderVersionList();
+  const d = await fetchDetail(ver);
+  if (!d) return;
+  renderDetail(d);
+  renderConvChart();
+  await loadVolume(d);
+}
+
+function renderDetail(d) {
+  const bar = document.getElementById('detailBar');
+  bar.style.display = 'flex';
+  const srcMap = { initial: 'T0 初始模板', iteration: '迭代构建' };
+  document.getElementById('detVer').textContent = `v${d.version}`;
+  document.getElementById('detSrc').textContent = srcMap[d.source] || d.source || '-';
+  document.getElementById('detN').textContent = d.n_samples != null ? d.n_samples : '-';
+
+  const deltaWrap = document.getElementById('detDeltaWrap');
+  const convWrap = document.getElementById('detConvWrap');
+  if (d.convergence) {
+    deltaWrap.style.display = '';
+    convWrap.style.display = '';
+    document.getElementById('detDelta').textContent =
+      d.convergence.delta != null ? d.convergence.delta.toFixed(4) : '-';
+    document.getElementById('detConv').innerHTML = d.convergence.converged
+      ? '<span style="color:#34d399">已收敛</span>'
+      : '<span style="color:#fbbf24">未收敛</span>';
+  } else {
+    deltaWrap.style.display = 'none';
+    convWrap.style.display = 'none';
+  }
+}
+
+// ======== Convergence chart ========
+function renderConvChart() {
+  const box = document.getElementById('convBox');
+  const chartEl = document.getElementById('convChart');
+  const pts = versions
+    .filter(v => v.convergence_delta != null && v.version > 0)
+    .map(v => ({ x: v.version, y: v.convergence_delta }));
+  if (pts.length < 1) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  const w = 208, h = 70;
+  const pad = { t: 6, r: 8, b: 18, l: 32 };
+  const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
+  const maxY = Math.max(...pts.map(p => p.y)) * 1.15;
+  const minX = Math.min(...pts.map(p => p.x));
+  const rngX = Math.max(...pts.map(p => p.x)) - minX || 1;
+  const sx = x => pad.l + ((x - minX) / rngX) * pw;
+  const sy = y => pad.t + ph - (y / maxY) * ph;
+
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${sx(p.x).toFixed(1)},${sy(p.y).toFixed(1)}`).join(' ');
+  const area = line + ` L${sx(pts[pts.length-1].x).toFixed(1)},${h-pad.b} L${sx(pts[0].x).toFixed(1)},${h-pad.b} Z`;
+  const dots = pts.map(p =>
+    `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="3"
+       fill="${p.x === activeVersion ? '#22d3ee' : '#a78bfa'}" stroke="#020617" stroke-width="1"/>`).join('');
+  const labels = pts.map(p =>
+    `<text x="${sx(p.x).toFixed(1)}" y="${h-4}" text-anchor="middle" font-size="8" fill="#64748b">v${p.x}</text>`).join('');
+
+  chartEl.innerHTML = `<svg viewBox="0 0 ${w} ${h}">
+    <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#a78bfa" stop-opacity="0"/>
+    </linearGradient></defs>
+    <path d="${area}" fill="url(#cg)"/>
+    <path d="${line}" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
+    ${dots}${labels}
+  </svg>`;
+}
+
+// ======== Load volume ========
+async function loadVolume(detail) {
+  const url = detail.template_nii_url;
+  if (!url) { badge.textContent = '无 NIfTI 数据'; return; }
+  if (!nv) { badge.textContent = '3D 组件不可用'; return; }
+
+  badge.textContent = `加载 v${detail.version}…`;
+  await nv.loadVolumes([{ url, colormap: document.getElementById('colorMap').value, opacity: 1, visible: true }]);
+  const mode = parseInt(document.getElementById('viewMode').value);
+  nv.setSliceType(mode);
+  badge.textContent = `v${detail.version}`;
+}
+
+// ======== Init ========
+(async () => {
+  await initNiivue();
+  versions = await fetchVersions();
+  if (!versions.length) {
+    document.getElementById('emptyState').classList.add('show');
+    return;
+  }
+  renderVersionList();
+  const latest = Math.max(...versions.map(v => v.version));
+  await selectVersion(latest);
+})();
+</script>
+</body>
+</html>

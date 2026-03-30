@@ -1,12 +1,4 @@
-"""
-task_service.py — 任务元数据管理（持久化到 JSON）
-
-职责：
-- 创建/更新/查询任务
-- 任务状态持久化到 data/projects/{project_id}/tasks/{task_id}/task.json
-- 每个任务拥有独立的日志文件 task.log
-- 线程安全
-"""
+"""任务元数据管理 (JSON持久化 + 内存缓存)"""
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -83,7 +75,7 @@ def update_task(
     status: str | None = None,
     result: dict[str, Any] | None = None,
     error_message: str | None = None,
-    progress: str | None = None,
+    progress: Any = None,
     log_file: str | None = None,
     project_id: str = "default",
 ) -> dict[str, Any]:

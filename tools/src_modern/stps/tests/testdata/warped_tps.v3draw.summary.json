@@ -1,0 +1,21 @@
+{
+  "elapsed_seconds": 0.0009632,
+  "error_message": "",
+  "input_dims": {
+    "c": 1,
+    "d": 16,
+    "h": 32,
+    "w": 32
+  },
+  "mean_marker_distance": 1.732050807568877,
+  "num_control_points": 6,
+  "output_dims": {
+    "c": 1,
+    "d": 16,
+    "h": 32,
+    "w": 32
+  },
+  "output_file": "E:\\workspace\\brainatlas\\tools\\src_modern\\stps\\tests\\testdata\\warped_tps.v3draw",
+  "std_marker_distance": 2.220446049250313e-16,
+  "success": true
+}

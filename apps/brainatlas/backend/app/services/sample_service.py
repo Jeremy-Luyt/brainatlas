@@ -86,3 +86,13 @@ def update_sample(sample_id: str, updates: dict[str, Any]) -> dict[str, Any]:
 
 def get_sample_dir(project_id: str, sample_id: str) -> Path:
     return _sample_dir(project_id, sample_id)
+
+
+def delete_sample(project_id: str, sample_id: str) -> bool:
+    """删除样本目录及其所有产物，返回是否有实际删除动作。"""
+    import shutil
+    sample_dir = project_workspace(project_id) / "samples" / sample_id
+    if not sample_dir.exists():
+        return False
+    shutil.rmtree(sample_dir, ignore_errors=True)
+    return True

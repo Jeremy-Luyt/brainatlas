@@ -350,11 +350,6 @@
       transition: width 0.4s ease;
     }
 
-    /* ---------- Coming Soon 占位 ---------- */
-    option:disabled {
-      color: #64748b;
-    }
-
     /* ---------- 样本列表 ---------- */
     .sample-list {
       flex: 1 1 auto;
@@ -509,6 +504,12 @@
       background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3);
       display:flex; align-items:center; gap:5px;">
       🧠 查看器</a>
+    <a href="/atlas" style="padding:5px 12px; border-radius:8px; font-size:11px;
+      color:#9ca3af; text-decoration:none; transition:all 0.15s;
+      display:flex; align-items:center; gap:5px;"
+      onmouseover="this.style.background='rgba(56,189,248,0.1)';this.style.color='#e5e7eb'"
+      onmouseout="this.style.background='';this.style.color='#9ca3af'">
+      🗺️ 图谱</a>
   </nav>
 
   <div class="layout">
@@ -571,8 +572,6 @@
           <select id="data-source" class="btn" style="margin-right:8px;">
             <option value="original">原图</option>
             <option value="global">Global配准结果</option>
-            <option value="local" disabled>Local配准 (Coming Soon)</option>
-            <option value="template" disabled>Template构建 (Coming Soon)</option>
           </select>
           <button id="reset-view" class="btn">重置视角</button>
         </div>
@@ -900,9 +899,8 @@
           currentSample.global_registration_status === 'completed'
         );
         dataSource.querySelector('option[value="global"]').disabled = !hasGlobal;
-        if (!hasGlobal) {
-          dataSource.value = 'original';
-        }
+
+        if (!hasGlobal && dataSource.value === 'global') dataSource.value = 'original';
 
         // 加载数据
         loadData();
@@ -918,6 +916,8 @@
       const source = dataSource.value;
       let niiUrl = '';
       let previewUrls = {};
+      const sourceLabels = { original: '原图', global: 'Global结果' };
+      const label = sourceLabels[source] || source;
 
       if (source === 'original') {
         niiUrl = currentSample.converted?.nii_url || '';
@@ -938,7 +938,7 @@
       // 加载 NIfTI
       if (niiUrl && nv) {
         console.log(`正在通过 NiiVue 加载 ${source} 体数据:`, niiUrl);
-        viewerStatus.textContent = `3D 数据加载中（${source === 'global' ? 'Global结果' : '原图'}）…`;
+        viewerStatus.textContent = `3D 数据加载中（${label}）…`;
         const volumeList = [
           {
             url: niiUrl,
@@ -963,7 +963,7 @@
         }
         
         nv.setSliceType(niivue.SLICE_TYPE.MULTIPLANAR);
-        viewerStatus.textContent = `3D 显示中（${source === 'global' ? 'Global结果' : '原图'}）`;
+        viewerStatus.textContent = `3D 显示中（${label}）`;
       } else if (niiUrl && !nv) {
         console.warn('NiiVue 未可用，已显示预览图但无法加载 3D 体数据。');
         viewerStatus.textContent = '3D 组件不可用';

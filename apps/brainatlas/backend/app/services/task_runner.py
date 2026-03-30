@@ -1,17 +1,4 @@
-"""
-task_runner.py — 后台任务执行器
-
-职责：
-- 在独立线程中执行耗时任务（global registration 等）
-- 写入结构化日志文件
-- 完成后更新 task 和 sample 状态
-- 统一的异常处理
-- 使用信号量控制重型任务并发（如配准 exe 限 1 个同时执行）
-
-用法：
-    from .task_runner import submit_task
-    submit_task("global_registration", task_id, project_id, payload)
-"""
+"""后台任务执行器: 独立线程 + 结构化日志 + 信号量并发控制"""
 from __future__ import annotations
 
 import logging
@@ -32,7 +19,7 @@ _handlers: dict[str, Callable[..., dict[str, Any]]] = {}
 #  并发控制：重型任务（如配准 exe）同时只允许 1 个执行
 # ---------------------------------------------------------------------------
 _heavy_semaphore = threading.Semaphore(1)
-_HEAVY_TASK_TYPES: set[str] = {"global_registration"}
+_HEAVY_TASK_TYPES: set[str] = {"global_registration", "template_build"}
 
 
 class TaskLogger:

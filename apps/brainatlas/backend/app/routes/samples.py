@@ -8,7 +8,7 @@ samples.py — 样本管理路由
 from fastapi import APIRouter, HTTPException
 
 from ..services.registration_service import hydrate_global_registration
-from ..services.sample_service import get_sample
+from ..services.sample_service import get_sample, delete_sample
 from ..services.task_service import create_task
 from ..services.task_runner import submit_task
 
@@ -53,3 +53,12 @@ def prepare_sample(sample_id: str, project_id: str = "default") -> dict:
     submit_task("sample_prepare", task_id, project_id, payload)
 
     return {"task_id": task_id, "status": "queued"}
+
+
+@router.delete("/{sample_id}")
+def delete_sample_endpoint(sample_id: str, project_id: str = "default") -> dict:
+    """删除样本及其全部产物。"""
+    removed = delete_sample(project_id, sample_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="sample not found")
+    return {"status": "deleted", "sample_id": sample_id}

@@ -1,15 +1,4 @@
-"""
-qc_global_results.py — Global 配准质量评估算法
-
-对 global registration 输出进行多维度 QC：
-  A. 文件完整性   B. 图像统计    C. 前景体积与占比
-  D. 边界裁剪     E. 对称性      F. 清晰度 / 结构信息
-  G. 综合评分
-
-设计原则：
-  - 仅使用 numpy / nibabel / scipy（轻量经典方法）
-  - 所有指标可解释、可审计
-"""
+"""全局配准质量评估: 文件完整性/图像统计/前景体积/边界/对称性/清晰度 → 综合评分"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,20 +34,7 @@ def run_global_qc(
     global_dir: Path,
     sample_meta: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """
-    对单个 sample 的 ``registration/global`` 目录运行完整 QC.
-
-    Parameters
-    ----------
-    global_dir : Path
-        ``<sample>/registration/global/`` 目录
-    sample_meta : dict, optional
-        sample.json 内容（可选，用于交叉验证）
-
-    Returns
-    -------
-    dict  ─ 完整 global_qc 结构，可直接写入 sample.json
-    """
+    """对单个sample的registration/global/目录运行完整QC"""
     qc: dict[str, Any] = {"qc_version": QC_VERSION, "status": "running"}
 
     try:

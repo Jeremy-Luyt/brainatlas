@@ -17,7 +17,7 @@
 #            0->GPU_acceleration off
 #            1->GPU_acceleration on
 
-Select_modal = 2
+Select_modal = 1
 max_iteration_number = 2000
 smoothness_constraint_outer_initial =150
 smoothness_constraint_inner_initial=400

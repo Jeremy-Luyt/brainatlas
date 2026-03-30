@@ -1,10 +1,4 @@
-"""
-batch_service.py — 批量任务提交服务
-
-职责：
-- 批量提交 sample_prepare 任务（用于文件夹索引后的一键预处理）
-- 批量提交 global_registration 任务（用于一键全局配准）
-"""
+"""批量任务提交服务"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -104,6 +98,9 @@ def submit_global_for_project(
             continue
         if global_status == "running":
             skipped.append({"sample_id": sid, "reason": "global task is already running"})
+            continue
+        if global_status == "completed":
+            skipped.append({"sample_id": sid, "reason": "global registration already completed"})
             continue
         if filename == "global.v3draw":
             skipped.append({"sample_id": sid, "reason": "moving cannot be global.v3draw"})

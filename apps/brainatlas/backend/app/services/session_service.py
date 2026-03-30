@@ -1,10 +1,4 @@
-"""
-session_service.py — 会话清理服务
-
-目标：
-- 清理当次上传样本与任务产物
-- 下次启动后从干净状态重新开始
-"""
+"""会话清理服务"""
 from __future__ import annotations
 
 import shutil

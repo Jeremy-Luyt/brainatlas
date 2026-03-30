@@ -667,6 +667,29 @@
     }
     .rank-use-btn:hover { background: rgba(34,197,94,0.25); }
 
+    /* T0 Picker Modal */
+    .t0-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9000; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .2s; pointer-events:none; }
+    .t0-overlay.open { opacity:1; pointer-events:auto; }
+    .t0-dialog { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; width:420px; max-width:92vw; box-shadow:0 12px 40px rgba(0,0,0,0.5); }
+    .t0-dialog h3 { margin:0 0 12px; font-size:15px; color:var(--text-main); font-weight:600; }
+    .t0-dialog .t0-hint { font-size:11.5px; color:var(--text-muted); margin-bottom:14px; }
+    .t0-list { list-style:none; padding:0; margin:0 0 14px; }
+    .t0-list li { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; border:2px solid transparent; cursor:pointer; transition:all .15s; }
+    .t0-list li:hover { background:rgba(99,102,241,0.08); }
+    .t0-list li.selected { border-color:var(--accent); background:rgba(99,102,241,0.12); }
+    .t0-list .t0-rank { font-size:18px; width:28px; text-align:center; flex-shrink:0; }
+    .t0-list .t0-info { flex:1; min-width:0; }
+    .t0-list .t0-name { font-size:12.5px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+    .t0-list .t0-meta { font-size:11px; color:var(--text-muted); }
+    .t0-list .t0-score { font-size:14px; font-weight:700; color:#4ade80; flex-shrink:0; }
+    .t0-actions { display:flex; gap:8px; justify-content:flex-end; }
+    .t0-actions button { padding:7px 18px; border-radius:8px; font-size:12.5px; cursor:pointer; border:1px solid var(--border); transition:all .15s; }
+    .t0-actions .t0-cancel { background:transparent; color:var(--text-muted); }
+    .t0-actions .t0-cancel:hover { background:rgba(255,255,255,0.05); }
+    .t0-actions .t0-confirm { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .t0-actions .t0-confirm:hover { filter:brightness(1.15); }
+    .t0-actions .t0-confirm:disabled { opacity:0.4; cursor:not-allowed; }
+
     @keyframes qcFadeIn {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
@@ -802,7 +825,11 @@
       </a>
       <a class="nav-card" href="/viewer">
         <span class="nav-icon">🧠</span>
-        <span><span class="nav-label">三维查看器</span><br/><span class="nav-sub">NiiVue · 脑图谱浏览</span></span>
+        <span><span class="nav-label">三维查看器</span><br/><span class="nav-sub">样本数据浏览</span></span>
+      </a>
+      <a class="nav-card" href="/atlas">
+        <span class="nav-icon">🗺️</span>
+        <span><span class="nav-label">脑图谱</span><br/><span class="nav-sub">图谱版本 · 3D 浏览</span></span>
       </a>
     </nav>
 
@@ -910,6 +937,21 @@
             <button id="runGlobalAllBtn" class="btn" style="flex:1 1 auto;">⚡ 全部全局配准</button>
             <button id="goToViewerBtn" class="btn" style="flex:0 0 auto;" title="跳转到Viewer查看配准结果">→ Viewer</button>
           </div>
+          <div class="controls-row" style="margin-top:6px;">
+            <button id="selectT0Btn" class="btn" style="flex:1 1 auto;" title="选择QC最高分样本作为初始模板T0">🎯 选择 T0</button>
+            <button id="buildTemplateBtn" class="btn btn-primary" style="flex:1 1 auto;" title="启动模板迭代构建">🧬 构建模板</button>
+          </div>
+          <div id="templateStatus" class="hint-row" style="margin-top:4px; display:none; font-size:12px; color:var(--text-muted);"></div>
+          <div id="buildProgressPanel" style="display:none; margin-top:8px; padding:10px 12px; border-radius:10px; background:rgba(2,6,23,0.65); border:1px solid rgba(56,189,248,0.18);">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:5px;">
+              <span id="upBuildIterLabel">迭代 —</span>
+              <span id="upBuildPctLabel" style="color:var(--accent); font-weight:600;">0%</span>
+            </div>
+            <div style="height:5px; border-radius:3px; background:rgba(55,65,81,0.6); overflow:hidden; margin-bottom:6px;">
+              <div id="upBuildBarFill" style="height:100%; border-radius:3px; background:linear-gradient(90deg,#22d3ee,#4ade80); transition:width 0.5s ease; width:0%;"></div>
+            </div>
+            <div id="upBuildStepLabel" style="font-size:11px; color:#9ca3af;"></div>
+          </div>
         </div>
 
         <div class="side-section" style="flex:1 1 auto; display:flex; flex-direction:column; min-height:220px;">
@@ -942,6 +984,19 @@
 
   <input id="fileInput" type="file" multiple accept=".v3draw,.nii,.nii.gz,.tif,.tiff,.mhd,.mha,.nrrd" style="display:none;" />
 
+  <!-- T0 Picker Modal (must be before script that references it) -->
+  <div id="t0Overlay" class="t0-overlay">
+    <div class="t0-dialog">
+      <h3>🎯 选择初始模板 T0</h3>
+      <div class="t0-hint">系统推荐前 3 名候选脑（按 QC 评分排序），请选择一个作为模板起点：</div>
+      <ul id="t0CandidateList" class="t0-list"></ul>
+      <div class="t0-actions">
+        <button class="t0-cancel" id="t0CancelBtn">取消</button>
+        <button class="t0-confirm" id="t0ConfirmBtn" disabled>✓ 确认选择</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API = {
       upload: "/api/upload",
@@ -954,7 +1009,10 @@
       batchGlobal: "/api/batch/register/global",
       cleanupSession: "/api/session/cleanup?project_id=default",
       templateCandidates: "/api/projects/default/template-candidates",
-      pipelineStatus: "/api/projects/default/pipeline-status"
+      pipelineStatus: "/api/projects/default/pipeline-status",
+      selectT0: "/api/template/select-t0",
+      buildTemplate: "/api/template/build",
+      templateVersions: "/api/template/versions"
     };
     const dropZone = document.getElementById("dropZone");
     const fileInput = document.getElementById("fileInput");
@@ -968,6 +1026,9 @@
     const runGlobalBtn = document.getElementById("runGlobalBtn");
     const runGlobalAllBtn = document.getElementById("runGlobalAllBtn");
     const goToViewerBtn = document.getElementById("goToViewerBtn");
+    const selectT0Btn = document.getElementById("selectT0Btn");
+    const buildTemplateBtn = document.getElementById("buildTemplateBtn");
+    const templateStatus = document.getElementById("templateStatus");
     const registerStatus = document.getElementById("registerStatus");
     const statTotal = document.getElementById("statTotal");
     const statSuccess = document.getElementById("statSuccess");
@@ -1256,8 +1317,18 @@
         status: "idle",
         sampleId: ""
       };
-      entry.deleteBtn.addEventListener("click", (e) => {
+      entry.deleteBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
+        // 已上传到服务器的样本需要同步删除
+        if (entry.sampleId) {
+          if (!confirm(`确认删除样本「${entry.file.name}」？服务端数据也将一并删除。`)) return;
+          try {
+            await fetch(`/api/samples/${encodeURIComponent(entry.sampleId)}?project_id=default`, { method: "DELETE" });
+          } catch (_) {}
+          // 从下拉框移除
+          const opt = movingSample.querySelector(`option[value="${entry.sampleId}"]`);
+          if (opt) opt.remove();
+        }
         filesState.delete(id);
         row.remove();
         updateStats();
@@ -1521,6 +1592,186 @@
     runGlobalBtn.addEventListener("click", () => runGlobalRegistration());
     runGlobalAllBtn.addEventListener("click", () => runGlobalRegistrationAll());
 
+    // ---------- T0 选择弹窗 ----------
+    const t0Overlay = document.getElementById("t0Overlay");
+    const t0CandidateList = document.getElementById("t0CandidateList");
+    const t0ConfirmBtn = document.getElementById("t0ConfirmBtn");
+    const t0CancelBtn = document.getElementById("t0CancelBtn");
+    const RANK_ICONS = ["🥇", "🥈", "🥉"];
+    let _t0SelectedId = null;
+
+    function closeT0Picker() {
+      t0Overlay.classList.remove("open");
+      _t0SelectedId = null;
+    }
+    t0CancelBtn.addEventListener("click", closeT0Picker);
+    t0Overlay.addEventListener("click", (e) => { if (e.target === t0Overlay) closeT0Picker(); });
+
+    async function submitT0Selection(sampleId) {
+      templateStatus.style.display = "block";
+      templateStatus.textContent = "正在设置 T0…";
+      try {
+        const resp = await fetch(API.selectT0, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project_id: "default", sample_id: sampleId || null }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          templateStatus.textContent = `✅ T0 已选择: ${data.template_v0?.source_sample_id?.slice(0,8) || "OK"} (score: ${(data.template_v0?.source_score * 100)?.toFixed(1) || "N/A"})`;
+        } else {
+          templateStatus.textContent = `T0 选择失败: ${data.detail || "unknown error"}`;
+        }
+      } catch (e) {
+        templateStatus.textContent = `T0 选择失败: ${e.message}`;
+      }
+    }
+
+    async function openT0Picker() {
+      selectT0Btn.disabled = true;
+      selectT0Btn.textContent = "⏳ 加载候选…";
+      try {
+        const resp = await fetch(API.templateCandidates);
+        if (!resp.ok) throw new Error("获取候选列表失败");
+        const candidates = await resp.json();
+        if (!candidates.length) {
+          templateStatus.style.display = "block";
+          templateStatus.textContent = "无可用候选样本（需要先完成全局配准和QC）";
+          return;
+        }
+        const top = candidates.slice(0, 3);
+        _t0SelectedId = null;
+        t0ConfirmBtn.disabled = true;
+        t0CandidateList.innerHTML = "";
+        top.forEach((c, i) => {
+          const li = document.createElement("li");
+          li.dataset.sampleId = c.sample_id;
+          const scoreStr = typeof c.score === "number" ? (c.score * 100).toFixed(1) : "N/A";
+          const level = c.qc_level || "review";
+          li.innerHTML =
+            `<span class="t0-rank">${RANK_ICONS[i] || i+1}</span>` +
+            `<span class="t0-info"><span class="t0-name" title="${c.filename}">${c.filename}</span>` +
+            `<span class="t0-meta">${c.sample_id.slice(0,8)} · ${level}</span></span>` +
+            `<span class="t0-score">${scoreStr}</span>`;
+          li.addEventListener("click", () => {
+            t0CandidateList.querySelectorAll("li").forEach(el => el.classList.remove("selected"));
+            li.classList.add("selected");
+            _t0SelectedId = c.sample_id;
+            t0ConfirmBtn.disabled = false;
+          });
+          // 默认选中第一个（推荐）
+          if (i === 0) {
+            li.classList.add("selected");
+            _t0SelectedId = c.sample_id;
+            t0ConfirmBtn.disabled = false;
+          }
+          t0CandidateList.appendChild(li);
+        });
+        t0Overlay.classList.add("open");
+      } catch (e) {
+        templateStatus.style.display = "block";
+        templateStatus.textContent = `加载候选失败: ${e.message}`;
+      } finally {
+        selectT0Btn.disabled = false;
+        selectT0Btn.textContent = "🎯 选择 T0";
+      }
+    }
+
+    t0ConfirmBtn.addEventListener("click", async () => {
+      if (!_t0SelectedId) return;
+      closeT0Picker();
+      await submitT0Selection(_t0SelectedId);
+    });
+
+    selectT0Btn.addEventListener("click", () => openT0Picker());
+
+    let _buildPollTimer = null;
+
+    function stopBuildPoll() {
+      if (_buildPollTimer) { clearInterval(_buildPollTimer); _buildPollTimer = null; }
+    }
+
+    function startBuildPoll(taskId) {
+      const panel = document.getElementById("buildProgressPanel");
+      const iterLbl = document.getElementById("upBuildIterLabel");
+      const pctLbl = document.getElementById("upBuildPctLabel");
+      const barFill = document.getElementById("upBuildBarFill");
+      const stepLbl = document.getElementById("upBuildStepLabel");
+      panel.style.display = "block";
+
+      async function poll() {
+        try {
+          const resp = await fetch(`/api/tasks/${encodeURIComponent(taskId)}?project_id=default`);
+          if (!resp.ok) return;
+          const task = await resp.json();
+          const p = task.progress;
+          if (p && typeof p === "object" && p.step_label) {
+            iterLbl.textContent = `迭代 ${p.iteration || "?"}/${p.max_iterations || "?"}`;
+            const pct = p.percent || 0;
+            pctLbl.textContent = pct + "%";
+            barFill.style.width = pct + "%";
+            let detail = p.step_label;
+            if (p.sample_total > 0) detail += ` (${p.sample_done}/${p.sample_total})`;
+            if (p.detail) detail += " — " + p.detail;
+            stepLbl.textContent = detail;
+          }
+          if (task.status === "completed") {
+            stopBuildPoll();
+            barFill.style.width = "100%";
+            pctLbl.textContent = "100%";
+            stepLbl.textContent = "✅ 构建完成";
+            templateStatus.style.display = "block";
+            templateStatus.textContent = `模板构建完成: v${task.result?.final_version || "?"}, 共 ${task.result?.total_iterations || "?"} 轮迭代`;
+            buildTemplateBtn.disabled = false;
+            buildTemplateBtn.textContent = "🧬 构建模板";
+          } else if (task.status === "failed") {
+            stopBuildPoll();
+            stepLbl.textContent = "❌ 构建失败";
+            barFill.style.background = "linear-gradient(90deg,#f97373,#dc2626)";
+            templateStatus.style.display = "block";
+            templateStatus.textContent = `模板构建失败: ${task.error_message || "unknown"}`;
+            buildTemplateBtn.disabled = false;
+            buildTemplateBtn.textContent = "🧬 构建模板";
+          }
+        } catch (_) {}
+      }
+      poll();
+      _buildPollTimer = setInterval(poll, 3000);
+    }
+
+    buildTemplateBtn.addEventListener("click", async () => {
+      buildTemplateBtn.disabled = true;
+      buildTemplateBtn.textContent = "⏳ 构建中…";
+      templateStatus.style.display = "block";
+      templateStatus.textContent = "正在提交模板构建任务…";
+      stopBuildPoll();
+      try {
+        const resp = await fetch(API.buildTemplate, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: "default",
+            max_iterations: 3,
+            max_samples: 3,
+            convergence_threshold: 0.5,
+          }),
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+          templateStatus.textContent = `模板构建已启动 (task: ${data.task_id?.substring(0, 8) || "?"})`;
+          startBuildPoll(data.task_id);
+        } else {
+          templateStatus.textContent = `模板构建提交失败: ${data.detail || "unknown error"}`;
+          buildTemplateBtn.disabled = false;
+          buildTemplateBtn.textContent = "🧬 构建模板";
+        }
+      } catch (e) {
+        templateStatus.textContent = `模板构建提交失败: ${e.message}`;
+        buildTemplateBtn.disabled = false;
+        buildTemplateBtn.textContent = "🧬 构建模板";
+      }
+    });
+
     // 选择 moving 样本时获取并显示其 QC 分数
     movingSample.addEventListener("change", async () => {
       qcScoreInline.style.display = "none";
@@ -1696,10 +1947,11 @@
             `<span class="rank-info"><span class="rank-name" title="${c.filename}">${c.filename}</span></span>` +
             `<span class="rank-score">${(c.score * 100).toFixed(1)}</span>` +
             `<span class="rank-level ${level}">${level}</span>` +
-            `<button class="rank-use-btn" title="使用这个脑作为模板">→ 模板</button>`;
-          li.querySelector(".rank-use-btn").addEventListener("click", () => {
-            try { localStorage.setItem("brainatlas_template_sample_id", c.sample_id); } catch(_) {}
-            window.location.href = `/viewer?sample_id=${encodeURIComponent(c.sample_id)}`;
+            `<button class="rank-use-btn" title="选择这个脑作为T0模板">设为T0</button>`;
+          li.querySelector(".rank-use-btn").addEventListener("click", async (ev) => {
+            ev.stopPropagation();
+            if (!confirm(`确认使用「${c.filename}」作为 T0 模板？`)) return;
+            await submitT0Selection(c.sample_id);
           });
           qcRankList.appendChild(li);
         });
@@ -1731,6 +1983,15 @@
           if (!resp.ok) continue;
           const tasks = await resp.json();
           if (Array.isArray(tasks) && tasks.length > 0) {
+            // 自动恢复模板构建进度轮询
+            const buildTask = tasks.find(t => t.task_type === "template_build");
+            if (buildTask) {
+              buildTemplateBtn.disabled = true;
+              buildTemplateBtn.textContent = "⏳ 构建中…";
+              templateStatus.style.display = "block";
+              templateStatus.textContent = `模板构建进行中 (task: ${buildTask.task_id.substring(0,8)})`;
+              startBuildPoll(buildTask.task_id);
+            }
             const recent = tasks.find(t => {
               const started = new Date(t.created_at || 0).getTime();
               return (Date.now() - started) < 30 * 60 * 1000;

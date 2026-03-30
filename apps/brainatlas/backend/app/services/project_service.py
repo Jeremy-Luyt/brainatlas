@@ -1,12 +1,4 @@
-"""
-project_service.py — 项目级管理服务
-
-职责：
-- 获取/创建项目元数据（project.json）
-- 返回项目下的样本索引（懒加载，仅返回摘要）
-- 返回项目下的任务索引
-- 返回项目下的模板索引（骨架）
-"""
+"""项目级管理服务"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -54,7 +46,7 @@ def update_project(project_id: str, updates: dict[str, Any]) -> dict[str, Any]:
 
 def list_sample_summaries(project_id: str) -> list[dict[str, Any]]:
     """
-    返回项目下所有样本的摘要信息（懒加载，不读取体数据）。
+    返回项目下所有样本的摘要信息
     只返回索引所需字段：sample_id, filename, prepare_status, global_registration_status, stats.shape
     """
     samples_dir = project_workspace(project_id) / "samples"

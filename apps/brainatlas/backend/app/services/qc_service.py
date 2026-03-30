@@ -1,12 +1,4 @@
-"""
-qc_service.py — Global QC 业务逻辑
-
-职责：
-- 对单个 sample 运行 global QC 并写回 sample.json
-- 批量 QC（按项目）
-- 人工确认更新（approved / rejected / needs_check）
-- 模板候选筛选（按 score 降序）
-"""
+"""配准质量QC业务逻辑"""
 from __future__ import annotations
 
 from datetime import datetime, timezone

@@ -3,3 +3,32 @@ server:
   port: 8000
 project:
   id: demo
+
+runtime:
+  mode: demo
+
+template_build:
+  enabled: true
+  max_iterations: 3
+  allow_manual_stop: true
+  convergence_threshold: 0.5
+
+landmarks:
+  extractor: harris
+  point_count: 50
+  nms_2d: 15
+  nms_3d: 15
+
+dataset:
+  max_samples_for_v1: 3
+
+intensity_normalize:
+  method: percentile
+  low_percentile: 1
+  high_percentile: 99
+
+stps:
+  exe: tools/src_modern/stps/build/bin/stps.exe
+  df_method: 1
+  block_size: 4
+  lambda: 0.2
