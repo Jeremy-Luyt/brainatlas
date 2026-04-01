@@ -15,7 +15,7 @@ from pipeline.wrappers.local_registration import run_local_registration
 from pipeline.wrappers.stps_wrapper import run_stps
 from pipeline.atlas.intensity_normalize import normalize_and_average
 from pipeline.atlas.marker_average import average_markers, parse_marker, write_marker
-from pipeline.atlas.convergence import compute_convergence_delta, is_converged
+from pipeline.atlas.convergence import compute_deformation_field_delta, is_converged, DEFAULT_THRESHOLD
 from pipeline.atlas.template_version import (
     ensure_version_dir,
     save_build_config,
@@ -147,7 +147,7 @@ def run_single_iteration(
 
     _log(logger, f"  Local registration completed: {len(local_results)}/{len(sample_entries)} succeeded")
 
-    # ── Step 2.5: 确保 local reg 输出与模板同尺寸 ──
+    # ── Step 2.5: 尺寸校正 + 边界伪影清除 ──────────
     _step_progress(2, 7, "尺寸校正", "重采样配准输出…")
     # (multiscale > 1 时 exe 输出降采样图像，需上采样回原始尺寸)
     prev_vol, _ = read_v3draw(prev_template)
@@ -177,6 +177,30 @@ def run_single_iteration(
                     if len(pts) > 0:
                         pts *= scale_xyz
                         write_marker(pts, mp)
+
+        # ── 清除局部配准边界伪影 ──
+        # local_registration_LYT.exe 在变形插值时可能将信号溢出到
+        # 原始脑体积包围盒之外 (尤其是图像角落), 产生矩形伪影.
+        # 用原始 global.v3draw 的前景 mask 对配准输出做裁剪.
+        sid = r["sample_id"]
+        global_v3draw = None
+        for entry in sample_entries:
+            if entry["sample_id"] == sid:
+                global_v3draw = Path(entry["global_v3draw"])
+                break
+        if global_v3draw and global_v3draw.exists():
+            orig_vol, _ = read_v3draw(global_v3draw)
+            if orig_vol.ndim == 4:
+                orig_vol = orig_vol[0]
+            if orig_vol.shape == reg_vol.shape:
+                orig_mask = orig_vol > 0
+                n_cleared = int(np.count_nonzero(reg_vol[~orig_mask]))
+                if n_cleared > 0:
+                    reg_vol[~orig_mask] = 0
+                    write_v3draw(reg_vol, reg_path)
+                    _log(logger, f"  Mask cleanup {sid}: cleared {n_cleared} boundary artifact voxels")
+            del orig_vol
+
         del reg_vol
 
     # ── Step 3: 点集平均 ────────────────────────────
@@ -242,8 +266,10 @@ def run_single_iteration(
     build_previews_from_volume(template_vol, preview_dir)
     _log(logger, "  Previews generated")
 
-    # ── Step 6: 收敛判断 ──────────────────────────
-    _step_progress(6, 7, "收敛判断", "比较相邻迭代标记点偏移…")
+    # ── Step 6: 收敛判断 (平均形变场模长) ─────────────
+    #  δ_k = (1/M) Σ ‖sub_avg_j − tar_ref_j‖₂
+    #  当 δ_k < ε 时模板已收敛至样本群体几何中心
+    _step_progress(6, 7, "收敛判断", "计算平均形变场模长 δ_k …")
     conv_data: dict[str, Any] = {
         "iteration": iteration,
         "n_points": len(sub_avg),
@@ -251,24 +277,16 @@ def run_single_iteration(
     }
     converged = False
 
-    if iteration >= 2:
-        prev_sub_avg_path = version_dir(project_dir, iteration - 1) / "sub_avg.marker"
-        if prev_sub_avg_path.exists():
-            prev_sub_avg = parse_marker(prev_sub_avg_path)
-            if len(prev_sub_avg) == len(sub_avg):
-                delta = compute_convergence_delta(sub_avg, prev_sub_avg)
-                threshold = config.get("convergence_threshold", 0.5)
-                converged = is_converged(delta, threshold)
-                conv_data["delta"] = delta
-                conv_data["threshold"] = threshold
-                conv_data["converged"] = converged
-                _log(logger, f"  Convergence: delta={delta:.4f}, threshold={threshold}, converged={converged}")
-            else:
-                _log(logger, f"  Convergence: point count mismatch ({len(prev_sub_avg)} vs {len(sub_avg)}), skip")
-        else:
-            _log(logger, "  Convergence: no previous sub_avg, skip")
+    if len(sub_avg) > 0 and len(tar_ref) > 0 and len(sub_avg) == len(tar_ref):
+        delta = compute_deformation_field_delta(sub_avg, tar_ref)
+        threshold = config.get("convergence_threshold", DEFAULT_THRESHOLD)
+        converged = is_converged(delta, threshold)
+        conv_data["delta"] = delta
+        conv_data["threshold"] = threshold
+        conv_data["converged"] = converged
+        _log(logger, f"  Convergence (avg deformation field): δ_k={delta:.6f} voxel, ε={threshold}, converged={converged}")
     else:
-        _log(logger, "  Convergence: iteration < 2, skip")
+        _log(logger, f"  Convergence: point count issue (sub_avg={len(sub_avg)}, tar_ref={len(tar_ref)}), skip")
 
     save_convergence(cur_dir, conv_data)
 

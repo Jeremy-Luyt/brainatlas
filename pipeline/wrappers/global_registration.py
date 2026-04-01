@@ -1,10 +1,14 @@
 from pathlib import Path
 import json
+import logging
 import os
 import shutil
 import subprocess
+import time
 
 from pipeline.common.file_naming import registration_file_name
+
+logger = logging.getLogger(__name__)
 
 
 def _repo_root() -> Path:
@@ -91,7 +95,15 @@ def _decode_output(buf: bytes | None) -> str:
     return buf.decode("utf-8", errors="replace")
 
 
-def run_global_registration(moving: str | Path, fixed: str | Path, output_dir: str | Path, subject_marker: str | Path = None, target_marker: str | Path = None) -> dict:
+def run_global_registration(
+    moving: str | Path,
+    fixed: str | Path,
+    output_dir: str | Path,
+    subject_marker: str | Path = None,
+    target_marker: str | Path = None,
+    timeout: int = 1800,
+    max_retries: int = 1,
+) -> dict:
     moving = Path(moving)
     fixed = Path(fixed)
     output_dir = Path(output_dir)
@@ -136,25 +148,51 @@ def run_global_registration(moving: str | Path, fixed: str | Path, output_dir: s
     path_entries = _runtime_path_entries(exe)
     env["PATH"] = os.pathsep.join(path_entries + [env.get("PATH", "")])
     log_path = output_dir / "global_registration.log"
-    print(f"DEBUG CMD: {cmd}")
+    logger.info("GlobalRegistration cmd: %s", cmd)
     output_path = _collect_outputs(output_dir, moving)
 
-    # 将 stdout/stderr 写入日志文件，避免 capture_output 在大输出时死锁
-    with open(log_path, "w", encoding="utf-8") as log_fh:
-        process = subprocess.run(
-            cmd,
-            stdout=log_fh,
-            stderr=subprocess.STDOUT,
-            env=env,
-            cwd=str(exe.parent),
-            timeout=1800,  # 30 分钟超时保护
-        )
-    merged_log = log_path.read_text(encoding="utf-8", errors="replace")
+    # 带重试的执行
+    last_error: Exception | None = None
+    for attempt in range(1 + max_retries):
+        if attempt > 0:
+            logger.warning(
+                "Retrying GlobalRegistration (attempt %d/%d) after failure: %s",
+                attempt + 1, 1 + max_retries, last_error,
+            )
+            time.sleep(3)
 
-    has_output = output_path.exists()
-    success_by_log = "Program exit success" in merged_log
-    if process.returncode != 0 and not has_output and not success_by_log:
-        raise RuntimeError(f"GlobalRegistration_LYT.exe failed with code {process.returncode}. log={log_path}")
+        try:
+            with open(log_path, "w", encoding="utf-8") as log_fh:
+                process = subprocess.run(
+                    cmd,
+                    stdout=log_fh,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                    cwd=str(exe.parent),
+                    timeout=timeout,
+                )
+            merged_log = log_path.read_text(encoding="utf-8", errors="replace")
+
+            has_output = output_path.exists()
+            success_by_log = "Program exit success" in merged_log
+            if process.returncode != 0 and not has_output and not success_by_log:
+                last_error = RuntimeError(
+                    f"GlobalRegistration_LYT.exe failed with code {process.returncode}. log={log_path}"
+                )
+                continue  # 重试
+
+            # 成功
+            break
+
+        except subprocess.TimeoutExpired:
+            last_error = TimeoutError(
+                f"GlobalRegistration_LYT.exe timed out after {timeout}s"
+            )
+            logger.error("GlobalRegistration timeout (%ds)", timeout)
+            continue
+    else:
+        # 所有重试都失败
+        raise last_error  # type: ignore[misc]
 
     result_path = output_dir / registration_file_name(moving, fixed)
     payload = {

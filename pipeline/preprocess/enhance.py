@@ -1,13 +1,26 @@
-"""增强预处理: 降采样/去条纹/去伪影/亮度自适应, 所有步骤由配置驱动"""
+"""
+增强预处理: 降采样/去条纹/去伪影/亮度自适应, 所有步骤由配置驱动
+
+三步核心预处理 (正式实现在独立模块):
+  1) downsample   - 各向异性降采样匹配 CCFv3 25μm 体素尺度
+  2) brightness   - 3D CLAHE 局部对比度增强, 校正脑区间亮度差异
+  3) destripe     - 对数空间频域陷波滤波, 去除刀切/荧光条纹
+
+通过 apply_enhancements() 统一入口按配置驱动.
+"""
 from __future__ import annotations
 
 from typing import Any
 
 import numpy as np
 
+# ── 正式实现模块 ──────────────────────────────────────
+from pipeline.preprocess.downsample import downsample as _downsample_impl
+from pipeline.preprocess.adaptive_brightness import adaptive_brightness as _clahe_impl
+from pipeline.preprocess.destripe import destripe as _destripe_impl
+
 try:
     from scipy.ndimage import uniform_filter, median_filter
-    from scipy.fft import fft, ifft
     HAS_SCIPY = True
 except ImportError:
     HAS_SCIPY = False
@@ -116,10 +129,40 @@ def apply_enhancements(
     options: dict[str, Any],
     logger: Any = None,
 ) -> np.ndarray:
-    """按配置依次应用预处理增强步骤"""
+    """
+    按配置依次应用预处理增强步骤.
+
+    推荐执行顺序: downsample → destripe → remove_artifact → brightness_adapt.
+
+    options 示例::
+
+        {
+            "downsample": {
+                "enabled": True,
+                "factors": [16, 64, 64],    # Z, Y, X
+                "method": "block_mean"       # "stride" | "block_mean"
+            },
+            "brightness_adapt": {
+                "enabled": True,
+                "block_size": 64,
+                "clip_limit": 3.0
+            },
+            "destripe": {
+                "enabled": True,
+                "orientation": "coronal",
+                "bandwidth": 2.0,
+                "notch_freq": null           # null=自动检测
+            },
+            "remove_artifact": {
+                "enabled": True,
+                "low_pct": 0.5,
+                "high_pct": 99.5
+            }
+        }
+    """
     result = volume
 
-    # 按固定顺序执行
+    # 按固定顺序执行: 降采样 → 去条纹 → 去伪影 → 亮度自适应
     steps = [
         ("downsample", _apply_downsample),
         ("destripe", _apply_destripe),
@@ -141,12 +184,20 @@ def apply_enhancements(
 
 
 def _apply_downsample(vol: np.ndarray, opts: dict) -> np.ndarray:
-    factors = tuple(opts.get("factors", [2, 2, 2]))
-    return downsample(vol, factors)
+    factors = tuple(opts.get("factors", [16, 64, 64]))
+    method = opts.get("method", "block_mean")
+    return _downsample_impl(vol, factors=factors, method=method)
 
 
 def _apply_destripe(vol: np.ndarray, opts: dict) -> np.ndarray:
-    return destripe(vol, sigma=opts.get("sigma", 3.0))
+    return _destripe_impl(
+        vol,
+        orientation=opts.get("orientation", "coronal"),
+        bandwidth=opts.get("bandwidth", 2.0),
+        notch_freq=opts.get("notch_freq"),
+        threshold_ratio=opts.get("threshold_ratio", 5.0),
+        log_offset=opts.get("log_offset", 1.0),
+    )
 
 
 def _apply_artifact(vol: np.ndarray, opts: dict) -> np.ndarray:
@@ -158,8 +209,9 @@ def _apply_artifact(vol: np.ndarray, opts: dict) -> np.ndarray:
 
 
 def _apply_brightness(vol: np.ndarray, opts: dict) -> np.ndarray:
-    return brightness_adapt(
+    return _clahe_impl(
         vol,
         block_size=opts.get("block_size", 64),
         clip_limit=opts.get("clip_limit", 3.0),
+        n_bins=opts.get("n_bins", 256),
     )

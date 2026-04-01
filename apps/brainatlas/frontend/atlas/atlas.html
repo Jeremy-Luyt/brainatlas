@@ -5,6 +5,17 @@
   <title>BrainAtlas · 脑图谱</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="icon" href="/static/brainatlas-logo.png" type="image/png" />
+
+  <!-- Three.js ES module imports -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three":            "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/":    "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
   <style>
     :root {
       --bg: #020617;
@@ -16,6 +27,7 @@
       --accent-dim: rgba(34,211,238,0.15);
       --purple: #a78bfa;
       --green: #34d399;
+      --amber: #fbbf24;
       --text: #e2e8f0;
       --text2: #94a3b8;
       --text3: #64748b;
@@ -30,62 +42,42 @@
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
     }
 
-    /* ── Full-screen canvas ── */
-    #viewer-canvas {
-      position: fixed; inset: 0; z-index: 0;
-      width: 100vw; height: 100vh;
-      background: #000;
+    /* ── Layout: sidebar + main split ── */
+    .layout {
+      display: flex; height: 100vh; width: 100vw;
     }
 
-    /* ── Floating nav ── */
-    .nav {
-      position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 100;
-      display: flex; gap: 2px; padding: 4px 6px;
-      background: rgba(2,6,23,0.75); border: 1px solid var(--border);
-      border-radius: 12px; backdrop-filter: blur(20px);
-    }
-    .nav a {
-      padding: 6px 14px; border-radius: 8px; font-size: 12px;
-      color: var(--text2); text-decoration: none; transition: all .15s;
-      display: flex; align-items: center; gap: 5px;
-    }
-    .nav a:hover { background: var(--accent-dim); color: var(--text); }
-    .nav a.active { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border-active); }
-
-    /* ── Floating sidebar ── */
+    /* ── Sidebar ── */
     .sidebar {
-      position: fixed; left: 16px; top: 64px; bottom: 16px; z-index: 50;
-      width: 240px;
-      background: rgba(2,6,23,0.82);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      backdrop-filter: blur(24px);
+      width: 256px; min-width: 256px; height: 100vh;
+      background: rgba(2,6,23,0.95);
+      border-right: 1px solid var(--border);
       display: flex; flex-direction: column;
-      overflow: hidden;
-      transition: transform .3s ease, opacity .3s ease;
+      z-index: 50;
+      transition: margin-left .3s ease, opacity .3s ease;
     }
-    .sidebar.collapsed { transform: translateX(-260px); opacity: 0; pointer-events: none; }
+    .sidebar.collapsed { margin-left: -256px; opacity: 0; pointer-events: none; }
 
     .sidebar-header {
-      padding: 16px 16px 12px;
+      padding: 14px 16px 10px;
       border-bottom: 1px solid var(--border);
       display: flex; align-items: center; justify-content: space-between;
     }
-    .sidebar-title { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+    .sidebar-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
     .sidebar-toggle {
-      width: 28px; height: 28px; border-radius: 8px;
+      width: 26px; height: 26px; border-radius: 7px;
       background: transparent; border: 1px solid var(--border);
-      color: var(--text2); cursor: pointer; font-size: 14px;
+      color: var(--text2); cursor: pointer; font-size: 13px;
       display: flex; align-items: center; justify-content: center;
       transition: all .15s;
     }
     .sidebar-toggle:hover { background: var(--accent-dim); color: var(--accent); }
 
-    /* ── Version list ── */
+    /* Version list */
     .ver-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 3px; }
     .ver-item {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: var(--radius-sm);
+      padding: 9px 12px; border-radius: var(--radius-sm);
       background: transparent; border: 1px solid transparent;
       cursor: pointer; transition: all .15s; font-size: 12px;
     }
@@ -105,92 +97,277 @@
     .ver-tag.iter { background: var(--accent-dim); color: var(--accent); }
     .ver-tag.conv { background: rgba(52,211,153,0.12); color: var(--green); }
 
-    /* ── Convergence mini chart ── */
-    .conv-box {
-      padding: 12px 16px; border-top: 1px solid var(--border);
-    }
+    /* Convergence mini chart */
+    .conv-box { padding: 12px 16px; border-top: 1px solid var(--border); }
     .conv-title { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
-    .conv-chart { width: 100%; height: 70px; }
+    .conv-chart { width: 100%; height: 68px; }
     .conv-chart svg { width: 100%; height: 100%; }
 
-    /* ── Floating controls (bottom-right) ── */
-    .controls {
-      position: fixed; right: 16px; bottom: 16px; z-index: 50;
-      display: flex; gap: 6px; align-items: flex-end;
+    /* Sidebar tabs */
+    .sidebar-tabs {
+      display: flex; gap: 2px; padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
     }
-    .ctrl-panel {
-      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); backdrop-filter: blur(24px);
-      padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+    .sidebar-tab {
+      flex: 1; padding: 6px 0; border-radius: 7px;
+      background: transparent; border: 1px solid transparent;
+      color: var(--text3); font-size: 11px; cursor: pointer;
+      transition: all .15s; text-align: center;
     }
-    .ctrl-row { display: flex; align-items: center; gap: 8px; }
-    .ctrl-label { font-size: 10px; color: var(--text3); min-width: 40px; }
-    .ctrl-select {
-      background: rgba(15,23,42,0.9); border: 1px solid var(--border);
-      color: var(--text); font-size: 11px; padding: 4px 8px;
-      border-radius: 6px; outline: none; cursor: pointer;
-    }
-    .ctrl-select:focus { border-color: var(--accent); }
-    .ctrl-btn {
-      background: rgba(15,23,42,0.9); border: 1px solid var(--border);
-      color: var(--text2); font-size: 11px; padding: 5px 10px;
-      border-radius: 6px; cursor: pointer; transition: all .15s;
-    }
-    .ctrl-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .ctrl-btn.active { background: var(--accent-dim); border-color: var(--border-active); color: var(--accent); }
+    .sidebar-tab:hover { background: rgba(56,189,248,0.06); color: var(--text2); }
+    .sidebar-tab.active { background: var(--accent-dim); border-color: var(--border-active); color: var(--accent); }
+    .tab-content { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .tab-content.active { display: flex; }
 
-    /* ── Floating status badge (top-left of canvas) ── */
-    .status-badge {
-      position: fixed; left: 272px; top: 72px; z-index: 40;
-      padding: 6px 14px; border-radius: 8px;
-      background: rgba(2,6,23,0.7); border: 1px solid var(--border);
-      font-size: 11px; color: var(--text2);
-      backdrop-filter: blur(12px); transition: left .3s ease;
+    /* Detail section in sidebar */
+    .detail-section {
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display: none; /* shown when version selected */
     }
-    .status-badge.expanded { left: 272px; }
-    .status-badge.compact { left: 24px; }
+    .detail-section.show { display: block; }
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 8px 12px;
+    }
+    .detail-item { display: flex; flex-direction: column; gap: 1px; }
+    .detail-label { color: var(--text3); font-size: 9px; text-transform: uppercase; letter-spacing: .4px; }
+    .detail-value { color: var(--text); font-size: 11px; font-weight: 500; }
 
-    /* ── Sidebar reopen button (when collapsed) ── */
+    /* ── Region search panel ── */
+    .region-search-box {
+      padding: 8px 10px; border-bottom: 1px solid var(--border);
+    }
+    .region-search-input {
+      width: 100%; padding: 7px 10px 7px 30px;
+      background: rgba(15,23,42,0.8); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 12px;
+      outline: none; transition: border-color .15s;
+    }
+    .region-search-input::placeholder { color: var(--text3); }
+    .region-search-input:focus { border-color: var(--border-active); }
+    .region-search-wrap {
+      position: relative;
+    }
+    .region-search-icon {
+      position: absolute; left: 9px; top: 50%; transform: translateY(-50%);
+      font-size: 12px; color: var(--text3); pointer-events: none;
+    }
+    .region-count {
+      font-size: 9px; color: var(--text3); padding: 4px 0 0 2px;
+    }
+    .region-list {
+      flex: 1; overflow-y: auto; padding: 4px 8px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .region-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: var(--radius-sm);
+      background: transparent; border: 1px solid transparent;
+      cursor: pointer; transition: all .12s; font-size: 11px;
+    }
+    .region-item:hover { background: rgba(56,189,248,0.06); border-color: var(--border); }
+    .region-item.active { background: var(--accent-dim); border-color: var(--border-active); }
+    .region-color {
+      width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .region-info { flex: 1; min-width: 0; }
+    .region-name {
+      font-weight: 500; color: var(--text); font-size: 11px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .region-sub {
+      font-size: 9px; color: var(--text3); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .region-vol {
+      font-size: 9px; color: var(--text2); white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Region detail bottom panel */
+    .region-detail {
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      display: none;
+    }
+    .region-detail.show { display: block; }
+    .region-detail-title {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+    }
+    .region-detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px;
+    }
+    .region-detail .detail-label { color: var(--text3); font-size: 9px; text-transform: uppercase; }
+    .region-detail .detail-value { color: var(--text); font-size: 10px; font-weight: 500; }
+
+    /* Map button */
+    .map-btn-wrap { padding: 8px 10px; border-top: 1px solid var(--border); }
+    .map-btn {
+      width: 100%; padding: 7px 0; border-radius: 8px;
+      background: var(--accent-dim); border: 1px solid var(--border-active);
+      color: var(--accent); font-size: 11px; font-weight: 500;
+      cursor: pointer; transition: all .15s;
+    }
+    .map-btn:hover { background: rgba(34,211,238,0.25); }
+    .map-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Main content area ── */
+    .main {
+      flex: 1; display: flex; flex-direction: column; position: relative;
+      min-width: 0;
+    }
+
+    /* Nav bar (top) */
+    .nav {
+      display: flex; align-items: center; gap: 2px;
+      padding: 8px 16px;
+      background: rgba(2,6,23,0.85);
+      border-bottom: 1px solid var(--border);
+      z-index: 30;
+    }
+    .nav-links {
+      display: flex; gap: 2px; padding: 3px 4px;
+      background: rgba(15,23,42,0.6); border-radius: 10px;
+    }
+    .nav a {
+      padding: 5px 12px; border-radius: 7px; font-size: 11px;
+      color: var(--text2); text-decoration: none; transition: all .15s;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .nav a:hover { background: var(--accent-dim); color: var(--text); }
+    .nav a.active { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border-active); }
+    .nav-spacer { flex: 1; }
+    .nav-badge {
+      padding: 4px 12px; border-radius: 7px;
+      background: rgba(15,23,42,0.8); border: 1px solid var(--border);
+      font-size: 10px; color: var(--text2);
+    }
     .sidebar-reopen {
-      position: fixed; left: 16px; top: 64px; z-index: 51;
-      width: 36px; height: 36px; border-radius: 10px;
-      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
-      backdrop-filter: blur(20px);
-      color: var(--text2); font-size: 16px; cursor: pointer;
+      width: 28px; height: 28px; border-radius: 7px; margin-right: 8px;
+      background: transparent; border: 1px solid var(--border);
+      color: var(--text2); cursor: pointer; font-size: 14px;
       display: none; align-items: center; justify-content: center;
       transition: all .15s;
     }
     .sidebar-reopen:hover { background: var(--accent-dim); color: var(--accent); }
     .sidebar-reopen.show { display: flex; }
 
-    /* ── Version detail overlay (bottom-left) ── */
-    .detail-bar {
-      position: fixed; left: 272px; bottom: 16px; z-index: 50;
-      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
-      border-radius: var(--radius-sm); backdrop-filter: blur(24px);
-      padding: 12px 18px; display: flex; gap: 24px; align-items: center;
-      font-size: 11px; transition: left .3s ease, opacity .3s ease;
+    /* ── Viewport area ── */
+    .viewport-area {
+      flex: 1; display: flex; position: relative; overflow: hidden;
     }
-    .detail-bar.compact { left: 24px; }
-    .detail-item { display: flex; flex-direction: column; gap: 2px; }
-    .detail-label { color: var(--text3); font-size: 9px; text-transform: uppercase; letter-spacing: .5px; }
-    .detail-value { color: var(--text); font-weight: 500; }
+
+    /* Primary 3D pane (Three.js) */
+    .pane-3d {
+      flex: 1; position: relative; min-width: 0;
+      background: radial-gradient(ellipse at center, #0a1628 0%, #020617 70%);
+    }
+    #three-canvas {
+      width: 100%; height: 100%; display: block;
+    }
+
+    /* Secondary volume pane (NiiVue) */
+    .pane-vol {
+      width: 360px; min-width: 0;
+      border-left: 1px solid var(--border);
+      position: relative; overflow: hidden;
+      transition: width .3s ease, min-width .3s ease, opacity .3s ease;
+    }
+    .pane-vol.collapsed { width: 0; min-width: 0; opacity: 0; border-left: none; }
+    #niivue-canvas {
+      width: 100%; height: 100%; display: block;
+      background: #000;
+    }
+
+    /* ── Floating control toolbar (bottom of 3D pane) ── */
+    .toolbar {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      z-index: 40;
+      display: flex; gap: 6px; align-items: center;
+      padding: 6px 10px;
+      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
+      border-radius: 12px; backdrop-filter: blur(20px);
+    }
+    .tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+    .tb-btn {
+      background: transparent; border: 1px solid transparent;
+      color: var(--text2); font-size: 11px; padding: 5px 10px;
+      border-radius: 7px; cursor: pointer; transition: all .15s;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .tb-btn:hover { border-color: var(--border); color: var(--text); background: rgba(56,189,248,0.06); }
+    .tb-btn.active { background: var(--accent-dim); border-color: var(--border-active); color: var(--accent); }
+    .tb-label { font-size: 10px; color: var(--text3); }
+    .tb-range {
+      -webkit-appearance: none; appearance: none;
+      width: 80px; height: 3px; border-radius: 2px;
+      background: var(--border); outline: none;
+    }
+    .tb-range::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+    }
+    .tb-select {
+      background: rgba(15,23,42,0.9); border: 1px solid var(--border);
+      color: var(--text); font-size: 10px; padding: 3px 6px;
+      border-radius: 5px; outline: none; cursor: pointer;
+    }
+
+    /* ── Volume pane mini-toolbar ── */
+    .vol-toolbar {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      z-index: 40;
+      display: flex; gap: 4px; align-items: center;
+      padding: 4px 8px;
+      background: rgba(2,6,23,0.82); border: 1px solid var(--border);
+      border-radius: 10px; backdrop-filter: blur(16px);
+    }
+    .vol-toolbar .tb-btn { font-size: 10px; padding: 3px 8px; }
+
+    /* ── Pane toggle handle ── */
+    .pane-toggle {
+      position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+      z-index: 42; width: 20px; height: 48px;
+      background: rgba(2,6,23,0.8); border: 1px solid var(--border);
+      border-radius: 8px 0 0 8px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--text3); font-size: 12px; transition: all .15s;
+    }
+    .pane-toggle:hover { background: var(--accent-dim); color: var(--accent); }
+
+    /* ── Loader overlay ── */
+    .loader-overlay {
+      position: absolute; inset: 0; z-index: 60;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(2,6,23,0.7);
+    }
+    .loader-overlay.show { display: flex; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 36px; height: 36px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
 
     /* ── Empty state ── */
     .empty-overlay {
-      position: fixed; inset: 0; z-index: 80;
+      position: absolute; inset: 0; z-index: 80;
       display: none; align-items: center; justify-content: center;
       background: rgba(2,6,23,0.95);
     }
     .empty-overlay.show { display: flex; }
     .empty-card {
-      text-align: center; max-width: 380px;
-      padding: 48px 32px; border-radius: 20px;
+      text-align: center; max-width: 360px;
+      padding: 40px 28px; border-radius: 18px;
       background: var(--surface); border: 1px solid var(--border);
     }
-    .empty-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.6; }
-    .empty-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
-    .empty-hint { font-size: 13px; color: var(--text2); line-height: 1.8; }
+    .empty-icon { font-size: 48px; margin-bottom: 14px; opacity: 0.6; }
+    .empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .empty-hint { font-size: 12px; color: var(--text2); line-height: 1.8; }
     .empty-hint a { color: var(--accent); text-decoration: none; }
 
     /* ── Scrollbar ── */
@@ -201,127 +378,320 @@
 </head>
 <body>
 
-<!-- Full-screen NiiVue canvas -->
-<canvas id="viewer-canvas"></canvas>
+<div class="layout">
 
-<!-- Nav -->
-<nav class="nav">
-  <a href="/upload">📤 上传</a>
-  <a href="/monitor">📊 监控</a>
-  <a href="/viewer">🧠 查看器</a>
-  <a href="/atlas" class="active">🗺️ 图谱</a>
-</nav>
-
-<!-- Sidebar reopen button -->
-<button class="sidebar-reopen" id="sidebarReopen" title="展开侧栏">◀</button>
-
-<!-- Sidebar: version list + convergence -->
-<aside class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <div class="sidebar-title">🗺️ 图谱版本</div>
-    <button class="sidebar-toggle" id="sidebarClose" title="收起">✕</button>
-  </div>
-  <div class="ver-list" id="verList"></div>
-  <div class="conv-box" id="convBox" style="display:none;">
-    <div class="conv-title">收敛趋势</div>
-    <div class="conv-chart" id="convChart"></div>
-  </div>
-</aside>
-
-<!-- Status badge -->
-<div class="status-badge expanded" id="statusBadge">加载中…</div>
-
-<!-- Version detail bar -->
-<div class="detail-bar" id="detailBar" style="display:none;">
-  <div class="detail-item">
-    <div class="detail-label">版本</div>
-    <div class="detail-value" id="detVer">-</div>
-  </div>
-  <div class="detail-item">
-    <div class="detail-label">来源</div>
-    <div class="detail-value" id="detSrc">-</div>
-  </div>
-  <div class="detail-item">
-    <div class="detail-label">样本数</div>
-    <div class="detail-value" id="detN">-</div>
-  </div>
-  <div class="detail-item" id="detDeltaWrap" style="display:none;">
-    <div class="detail-label">收敛 Δ</div>
-    <div class="detail-value" id="detDelta">-</div>
-  </div>
-  <div class="detail-item" id="detConvWrap" style="display:none;">
-    <div class="detail-label">状态</div>
-    <div class="detail-value" id="detConv">-</div>
-  </div>
-</div>
-
-<!-- Controls -->
-<div class="controls">
-  <div class="ctrl-panel">
-    <div class="ctrl-row">
-      <span class="ctrl-label">视图</span>
-      <select class="ctrl-select" id="viewMode">
-        <option value="4">3D 渲染</option>
-        <option value="3">三切面</option>
-        <option value="0">轴向 Axial</option>
-        <option value="1">冠状 Coronal</option>
-        <option value="2">矢状 Sagittal</option>
-      </select>
+  <!-- ════ Sidebar ════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">🗺️ 脑图谱</div>
+      <button class="sidebar-toggle" id="sidebarClose" title="收起">✕</button>
     </div>
-    <div class="ctrl-row">
-      <span class="ctrl-label">色表</span>
-      <select class="ctrl-select" id="colorMap">
-        <option value="gray">Gray</option>
-        <option value="hot">Hot</option>
-        <option value="jet">Jet</option>
-        <option value="winter">Winter</option>
-        <option value="cool">Cool</option>
-      </select>
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" data-tab="versions">📋 版本</button>
+      <button class="sidebar-tab" data-tab="regions">🔍 脑区</button>
     </div>
-    <div class="ctrl-row" style="justify-content:flex-end; gap:4px;">
-      <button class="ctrl-btn" id="btnReset" title="重置视角">↻ 重置</button>
-      <button class="ctrl-btn" id="btnClip" title="切面裁剪开关">✂ 裁剪</button>
+
+    <!-- Tab: 版本列表 -->
+    <div class="tab-content active" id="tabVersions">
+      <div class="ver-list" id="verList"></div>
+      <div class="conv-box" id="convBox" style="display:none;">
+        <div class="conv-title">收敛趋势</div>
+        <div class="conv-chart" id="convChart"></div>
+      </div>
+      <div class="detail-section" id="detailSection">
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-label">版本</div><div class="detail-value" id="detVer">-</div></div>
+          <div class="detail-item"><div class="detail-label">来源</div><div class="detail-value" id="detSrc">-</div></div>
+          <div class="detail-item"><div class="detail-label">样本数</div><div class="detail-value" id="detN">-</div></div>
+          <div class="detail-item" id="detDeltaWrap" style="display:none;"><div class="detail-label">收敛 Δ</div><div class="detail-value" id="detDelta">-</div></div>
+          <div class="detail-item" id="detConvWrap" style="display:none;"><div class="detail-label">状态</div><div class="detail-value" id="detConv">-</div></div>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- Empty state -->
-<div class="empty-overlay" id="emptyState">
-  <div class="empty-card">
-    <div class="empty-icon">🗺️</div>
-    <div class="empty-title">尚未构建脑图谱</div>
-    <div class="empty-hint">
-      请先在 <a href="/upload">上传页面</a> 上传样本数据<br/>并启动模板构建流程
+    <!-- Tab: 脑区检索 -->
+    <div class="tab-content" id="tabRegions">
+      <div class="region-search-box">
+        <div class="region-search-wrap">
+          <span class="region-search-icon">🔍</span>
+          <input type="text" class="region-search-input" id="regionSearchInput"
+                 placeholder="搜索脑区: 中文 / 英文 / 缩写…" />
+        </div>
+        <div class="region-count" id="regionCount"></div>
+      </div>
+      <div class="region-list" id="regionList"></div>
+      <div class="region-detail" id="regionDetail">
+        <div class="region-detail-title">
+          <span class="region-color" id="rdColor" style="width:12px;height:12px;"></span>
+          <span id="rdName">-</span>
+        </div>
+        <div class="region-detail-grid">
+          <div class="detail-item"><div class="detail-label">ID</div><div class="detail-value" id="rdId">-</div></div>
+          <div class="detail-item"><div class="detail-label">缩写</div><div class="detail-value" id="rdAcro">-</div></div>
+          <div class="detail-item"><div class="detail-label">英文名</div><div class="detail-value" id="rdEn">-</div></div>
+          <div class="detail-item"><div class="detail-label">中文名</div><div class="detail-value" id="rdZh">-</div></div>
+          <div class="detail-item"><div class="detail-label">体素数</div><div class="detail-value" id="rdVox">-</div></div>
+          <div class="detail-item"><div class="detail-label">体积 mm³</div><div class="detail-value" id="rdVol">-</div></div>
+          <div class="detail-item"><div class="detail-label">子区域</div><div class="detail-value" id="rdChildren">-</div></div>
+          <div class="detail-item"><div class="detail-label">层级</div><div class="detail-value" id="rdDepth">-</div></div>
+        </div>
+      </div>
+      <div class="map-btn-wrap" id="mapBtnWrap" style="display:none;">
+        <button class="map-btn" id="btnMapAnatomy">🧬 生成解剖映射</button>
+      </div>
     </div>
-  </div>
-</div>
+  </aside>
 
-<script>
-// ======== State ========
-let versions = [];
-let activeVersion = null;
-let nv = null;
-let clipOn = false;
+  <!-- ════ Main area ════ -->
+  <div class="main">
 
+    <!-- Nav bar -->
+    <nav class="nav">
+      <button class="sidebar-reopen" id="sidebarReopen" title="展开">☰</button>
+      <div class="nav-links">
+        <a href="/upload">📤 上传</a>
+        <a href="/monitor">📊 监控</a>
+        <a href="/viewer">🧠 查看器</a>
+        <a href="/atlas" class="active">🗺️ 图谱</a>
+      </div>
+      <div class="nav-spacer"></div>
+      <div class="nav-badge" id="statusBadge">加载中…</div>
+    </nav>
+
+    <!-- Viewport split: 3D mesh + volume slices -->
+    <div class="viewport-area">
+
+      <!-- Primary: Three.js mesh viewport -->
+      <div class="pane-3d" id="pane3d">
+        <canvas id="three-canvas"></canvas>
+
+        <!-- 3D loader -->
+        <div class="loader-overlay" id="meshLoader"><div class="spinner"></div></div>
+
+        <!-- 3D toolbar -->
+        <div class="toolbar" id="toolbar3d">
+          <button class="tb-btn active" id="btnSurface" title="表面渲染">🧊 表面</button>
+          <button class="tb-btn" id="btnWireframe" title="线框">🔲 线框</button>
+          <div class="tb-sep"></div>
+          <span class="tb-label">透明度</span>
+          <input type="range" class="tb-range" id="opacityRange" min="0" max="100" value="100" />
+          <div class="tb-sep"></div>
+          <span class="tb-label">颜色</span>
+          <select class="tb-select" id="meshColor">
+            <option value="#87ceeb">天蓝</option>
+            <option value="#e8cbe8">淡紫</option>
+            <option value="#c8e6c8">淡绿</option>
+            <option value="#f5d6ba">暖橙</option>
+            <option value="#e2e8f0">灰白</option>
+          </select>
+          <div class="tb-sep"></div>
+          <button class="tb-btn" id="btnResetCam" title="重置视角">↻ 重置</button>
+        </div>
+
+        <!-- Panel toggle handle -->
+        <div class="pane-toggle" id="paneToggle" title="切换切片面板">◀</div>
+
+        <!-- Empty state -->
+        <div class="empty-overlay" id="emptyState">
+          <div class="empty-card">
+            <div class="empty-icon">🗺️</div>
+            <div class="empty-title">尚未构建脑图谱</div>
+            <div class="empty-hint">
+              请先在 <a href="/upload">上传页面</a> 上传样本数据<br/>并启动模板构建流程
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Secondary: NiiVue volume slices -->
+      <div class="pane-vol" id="paneVol">
+        <canvas id="niivue-canvas"></canvas>
+        <div class="vol-toolbar">
+          <button class="tb-btn active" data-slice="3" title="三切面">三切面</button>
+          <button class="tb-btn" data-slice="4" title="3D渲染">3D</button>
+          <button class="tb-btn" data-slice="0" title="轴向">Ax</button>
+          <button class="tb-btn" data-slice="1" title="冠状">Co</button>
+          <button class="tb-btn" data-slice="2" title="矢状">Sa</button>
+        </div>
+      </div>
+
+    </div><!-- viewport-area -->
+  </div><!-- main -->
+</div><!-- layout -->
+
+<!-- ═══════════════════ Scripts ═══════════════════ -->
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SSAOPass } from 'three/addons/postprocessing/SSAOPass.js';
+
+// ──────── State ────────
+let versions = [], activeVersion = null, nv = null;
+let meshGroup = null;   // THREE.Group 持有当前模型
+let meshMaterial = null; // 当前材质引用
 const badge = document.getElementById('statusBadge');
-const sidebar = document.getElementById('sidebar');
-const reopenBtn = document.getElementById('sidebarReopen');
 
-// ======== Sidebar toggle ========
-document.getElementById('sidebarClose').onclick = () => {
-  sidebar.classList.add('collapsed');
-  reopenBtn.classList.add('show');
-  badge.classList.replace('expanded','compact');
-  document.getElementById('detailBar').classList.add('compact');
+// ──────── Three.js 初始化 ────────
+const canvas3d = document.getElementById('three-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.2;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020617);
+
+// 相机
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 2000);
+camera.position.set(0, 0, 250);
+
+// 灯光
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+const keyLight = new THREE.DirectionalLight(0xc8e8ff, 1.2);
+keyLight.position.set(80, 120, 100);
+scene.add(keyLight);
+const fillLight = new THREE.DirectionalLight(0xffd4a8, 0.4);
+fillLight.position.set(-60, -40, -80);
+scene.add(fillLight);
+const rimLight = new THREE.DirectionalLight(0x88ccff, 0.6);
+rimLight.position.set(0, -100, 60);
+scene.add(rimLight);
+
+// 控制器
+const controls = new OrbitControls(camera, canvas3d);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.rotateSpeed = 0.6;
+controls.zoomSpeed = 0.8;
+controls.minDistance = 50;
+controls.maxDistance = 800;
+
+// 后处理
+const composer = new EffectComposer(renderer);
+const renderPass = new RenderPass(scene, camera);
+composer.addPass(renderPass);
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.15, 0.4, 0.9);
+composer.addPass(bloomPass);
+
+// GLTFLoader
+const gltfLoader = new GLTFLoader();
+
+// ──────── 自适应尺寸 ────────
+function resize3D() {
+  const pane = document.getElementById('pane3d');
+  const w = pane.clientWidth, h = pane.clientHeight;
+  if (w < 1 || h < 1) return;
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+// ──────── 加载 GLB 模型 ────────
+async function loadMesh(version) {
+  const loader = document.getElementById('meshLoader');
+  loader.classList.add('show');
+  badge.textContent = `加载 v${version} 网格…`;
+
+  // 清除旧模型
+  if (meshGroup) { scene.remove(meshGroup); meshGroup = null; }
+
+  try {
+    const url = `/api/mesh/template/${version}?project_id=default`;
+    const gltf = await new Promise((resolve, reject) => {
+      gltfLoader.load(url, resolve, undefined, reject);
+    });
+
+    meshGroup = new THREE.Group();
+    const color = document.getElementById('meshColor').value;
+    meshMaterial = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(color),
+      metalness: 0.05,
+      roughness: 0.35,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.25,
+      transparent: true,
+      opacity: 1.0,
+      side: THREE.DoubleSide,
+    });
+
+    gltf.scene.traverse(child => {
+      if (child.isMesh) {
+        child.material = meshMaterial;
+        child.geometry.computeVertexNormals();
+      }
+    });
+
+    meshGroup.add(gltf.scene);
+    scene.add(meshGroup);
+
+    // 自动缩放 + 居中
+    const box = new THREE.Box3().setFromObject(meshGroup);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    meshGroup.position.sub(center);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 150 / maxDim;
+    meshGroup.scale.setScalar(scale);
+
+    // 摄像机归位
+    camera.position.set(0, 0, 250);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    badge.textContent = `v${version}`;
+    loader.classList.remove('show');
+  } catch (err) {
+    console.error('GLB load error:', err);
+    loader.classList.remove('show');
+    badge.textContent = `v${version} (网格不可用，显示切片)`;
+  }
+}
+
+// ──────── 渲染循环 ────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  composer.render();
+}
+resize3D();
+animate();
+
+// ──────── 3D 工具栏事件 ────────
+document.getElementById('btnWireframe').onclick = function () {
+  if (!meshMaterial) return;
+  meshMaterial.wireframe = !meshMaterial.wireframe;
+  this.classList.toggle('active', meshMaterial.wireframe);
+  document.getElementById('btnSurface').classList.toggle('active', !meshMaterial.wireframe);
 };
-reopenBtn.onclick = () => {
-  sidebar.classList.remove('collapsed');
-  reopenBtn.classList.remove('show');
-  badge.classList.replace('compact','expanded');
-  document.getElementById('detailBar').classList.remove('compact');
+document.getElementById('btnSurface').onclick = function () {
+  if (!meshMaterial) return;
+  meshMaterial.wireframe = false;
+  this.classList.add('active');
+  document.getElementById('btnWireframe').classList.remove('active');
+};
+document.getElementById('opacityRange').oninput = function () {
+  if (!meshMaterial) return;
+  meshMaterial.opacity = this.value / 100;
+  meshMaterial.transparent = meshMaterial.opacity < 1;
+};
+document.getElementById('meshColor').onchange = function () {
+  if (!meshMaterial) return;
+  meshMaterial.color.set(this.value);
+};
+document.getElementById('btnResetCam').onclick = () => {
+  camera.position.set(0, 0, 250);
+  controls.target.set(0, 0, 0);
+  controls.update();
 };
 
-// ======== NiiVue ========
+// ──────── NiiVue 初始化 ────────
 async function loadScript(urls) {
   for (const url of urls) {
     try {
@@ -335,56 +705,77 @@ async function loadScript(urls) {
         document.head.appendChild(s);
       });
       if (window.niivue?.Niivue) return true;
-    } catch (_) {}
+    } catch { /* try next */ }
   }
   return false;
 }
 
 async function initNiivue() {
-  badge.textContent = '3D 组件加载中…';
   if (!window.niivue?.Niivue) {
     const ok = await loadScript([
       '/static/vendor/niivue.umd.js',
       'https://cdn.jsdelivr.net/npm/@niivue/niivue@0.64.0/dist/niivue.umd.js',
-      'https://unpkg.com/@niivue/niivue@0.64.0/dist/niivue.umd.js'
     ]);
-    if (!ok) { badge.textContent = '3D 组件加载失败'; return false; }
+    if (!ok) { console.warn('NiiVue unavailable'); return false; }
   }
   nv = new niivue.Niivue({
     backColor: [0.01, 0.02, 0.05, 1],
     show3Dcrosshair: false,
     isRadiologicalConvention: false,
   });
-  nv.attachTo('viewer-canvas');
-  nv.setSliceType(nv.sliceTypeRender);
-  badge.textContent = '3D 组件就绪';
+  nv.attachTo('niivue-canvas');
+  nv.setSliceType(3); // 三切面
   return true;
 }
 
-// ======== Controls ========
-document.getElementById('viewMode').onchange = e => {
-  if (!nv) return;
-  nv.setSliceType(parseInt(e.target.value));
-};
-document.getElementById('colorMap').onchange = e => {
-  if (!nv?.volumes?.length) return;
-  nv.volumes[0].colormap = e.target.value;
-  nv.updateGLVolume();
-};
-document.getElementById('btnReset').onclick = () => {
-  if (!nv) return;
-  document.getElementById('viewMode').value = '4';
-  nv.setSliceType(nv.sliceTypeRender);
-};
-document.getElementById('btnClip').onclick = () => {
-  if (!nv) return;
-  clipOn = !clipOn;
-  const btn = document.getElementById('btnClip');
-  btn.classList.toggle('active', clipOn);
-  nv.setClipPlane(clipOn ? [0, 270, 0] : [-2, 0, 0]);
+// Volume slice mode buttons
+document.querySelectorAll('.vol-toolbar .tb-btn').forEach(btn => {
+  btn.onclick = function () {
+    if (!nv) return;
+    document.querySelectorAll('.vol-toolbar .tb-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    nv.setSliceType(parseInt(this.dataset.slice));
+  };
+});
+
+// ──────── Panel toggle (volume pane) ────────
+const paneVol = document.getElementById('paneVol');
+const paneToggle = document.getElementById('paneToggle');
+let volCollapsed = false;
+paneToggle.onclick = () => {
+  volCollapsed = !volCollapsed;
+  paneVol.classList.toggle('collapsed', volCollapsed);
+  paneToggle.textContent = volCollapsed ? '▶' : '◀';
+  // 延迟重绘
+  setTimeout(() => {
+    resize3D();
+    if (nv && !volCollapsed) nv.drawScene();
+  }, 350);
 };
 
-// ======== API ========
+// ──────── Sidebar toggle ────────
+const sidebar = document.getElementById('sidebar');
+const reopenBtn = document.getElementById('sidebarReopen');
+document.getElementById('sidebarClose').onclick = () => {
+  sidebar.classList.add('collapsed');
+  reopenBtn.classList.add('show');
+  setTimeout(resize3D, 350);
+};
+reopenBtn.onclick = () => {
+  sidebar.classList.remove('collapsed');
+  reopenBtn.classList.remove('show');
+  setTimeout(resize3D, 350);
+};
+
+// ──────── 窗口 resize ────────
+window.addEventListener('resize', () => {
+  resize3D();
+  if (nv) nv.drawScene();
+});
+// ResizeObserver 检测面板尺寸变化
+new ResizeObserver(() => resize3D()).observe(document.getElementById('pane3d'));
+
+// ──────── API ────────
 async function fetchVersions() {
   try {
     const r = await fetch('/api/template/versions?project_id=default');
@@ -400,7 +791,7 @@ async function fetchDetail(ver) {
   } catch { return null; }
 }
 
-// ======== Version list ========
+// ──────── 版本列表 ────────
 function renderVersionList() {
   const el = document.getElementById('verList');
   el.innerHTML = '';
@@ -418,17 +809,14 @@ function renderVersionList() {
     item.className = 'ver-item' + (isActive ? ' active' : '');
     item.innerHTML = `
       <span class="ver-dot ${dotCls}"></span>
-      <div>
-        <div class="ver-name">v${v.version}</div>
-        <div class="ver-sub">${sub}</div>
-      </div>
+      <div><div class="ver-name">v${v.version}</div><div class="ver-sub">${sub}</div></div>
       <span class="ver-tag ${tagCls}">${tagText}</span>`;
     item.onclick = () => selectVersion(v.version);
     el.appendChild(item);
   }
 }
 
-// ======== Select version ========
+// ──────── 选择版本 ────────
 async function selectVersion(ver) {
   activeVersion = ver;
   renderVersionList();
@@ -436,12 +824,16 @@ async function selectVersion(ver) {
   if (!d) return;
   renderDetail(d);
   renderConvChart();
-  await loadVolume(d);
+
+  // 并行加载 GLB 和 NIfTI
+  const meshPromise = loadMesh(ver);
+  const volPromise = loadVolume(d);
+  await Promise.all([meshPromise, volPromise]);
 }
 
 function renderDetail(d) {
-  const bar = document.getElementById('detailBar');
-  bar.style.display = 'flex';
+  const sec = document.getElementById('detailSection');
+  sec.classList.add('show');
   const srcMap = { initial: 'T0 初始模板', iteration: '迭代构建' };
   document.getElementById('detVer').textContent = `v${d.version}`;
   document.getElementById('detSrc').textContent = srcMap[d.source] || d.source || '-';
@@ -463,7 +855,7 @@ function renderDetail(d) {
   }
 }
 
-// ======== Convergence chart ========
+// ──────── 收敛图 ────────
 function renderConvChart() {
   const box = document.getElementById('convBox');
   const chartEl = document.getElementById('convChart');
@@ -473,7 +865,7 @@ function renderConvChart() {
   if (pts.length < 1) { box.style.display = 'none'; return; }
   box.style.display = '';
 
-  const w = 208, h = 70;
+  const w = 224, h = 68;
   const pad = { t: 6, r: 8, b: 18, l: 32 };
   const pw = w - pad.l - pad.r, ph = h - pad.t - pad.b;
   const maxY = Math.max(...pts.map(p => p.y)) * 1.15;
@@ -501,31 +893,261 @@ function renderConvChart() {
   </svg>`;
 }
 
-// ======== Load volume ========
+// ──────── 加载体数据到 NiiVue ────────
 async function loadVolume(detail) {
   const url = detail.template_nii_url;
-  if (!url) { badge.textContent = '无 NIfTI 数据'; return; }
-  if (!nv) { badge.textContent = '3D 组件不可用'; return; }
-
-  badge.textContent = `加载 v${detail.version}…`;
-  await nv.loadVolumes([{ url, colormap: document.getElementById('colorMap').value, opacity: 1, visible: true }]);
-  const mode = parseInt(document.getElementById('viewMode').value);
-  nv.setSliceType(mode);
-  badge.textContent = `v${detail.version}`;
+  if (!url || !nv) return;
+  try {
+    await nv.loadVolumes([{ url, colormap: 'gray', opacity: 1, visible: true }]);
+    nv.setSliceType(3); // 三切面
+  } catch (err) {
+    console.warn('NiiVue load error:', err);
+  }
 }
 
-// ======== Init ========
+// ──────── 启动 ────────
 (async () => {
-  await initNiivue();
+  const nvReady = initNiivue();   // 异步但不阻塞
+
+  // 初始化 sidebar tabs
+  initSidebarTabs();
+
   versions = await fetchVersions();
   if (!versions.length) {
     document.getElementById('emptyState').classList.add('show');
+    badge.textContent = '无数据';
+    // 仍然初始化脑区检索 (CCF 模式)
+    initRegionSearch();
     return;
   }
   renderVersionList();
+  await nvReady; // 等 NiiVue 就绪
   const latest = Math.max(...versions.map(v => v.version));
   await selectVersion(latest);
+  // 初始化脑区检索
+  initRegionSearch();
 })();
+
+
+// ══════════════════════════════════════════════
+//  脑区检索模块
+// ══════════════════════════════════════════════
+
+let activeRegionId = null;
+let regionMeshGroup = null;  // 脑区 Three.js 网格
+let anatomyMappingReady = false;
+
+// ──────── Sidebar tabs ────────
+function initSidebarTabs() {
+  document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    tab.onclick = () => {
+      document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(tab.dataset.tab === 'versions' ? 'tabVersions' : 'tabRegions')
+        .classList.add('active');
+    };
+  });
+}
+
+// ──────── 初始化脑区检索 ────────
+async function initRegionSearch() {
+  // 检查映射状态
+  const status = await fetchAnatomyStatus();
+  anatomyMappingReady = (status.status === 'completed');
+
+  const mapWrap = document.getElementById('mapBtnWrap');
+  if (activeVersion != null && !anatomyMappingReady) {
+    mapWrap.style.display = '';
+  }
+
+  // 搜索输入
+  const input = document.getElementById('regionSearchInput');
+  let debounce = null;
+  input.oninput = () => {
+    clearTimeout(debounce);
+    debounce = setTimeout(() => searchRegions(input.value), 250);
+  };
+
+  // 映射按钮
+  document.getElementById('btnMapAnatomy').onclick = triggerAnatomyMapping;
+
+  // 默认加载 top 脑区
+  await searchRegions('');
+}
+
+async function fetchAnatomyStatus() {
+  try {
+    const v = activeVersion != null ? `&version=${activeVersion}` : '';
+    const r = await fetch(`/api/anatomy/status?project_id=default${v}`);
+    return r.ok ? await r.json() : { status: 'unknown' };
+  } catch { return { status: 'unknown' }; }
+}
+
+async function searchRegions(query) {
+  const source = anatomyMappingReady ? 'mapped' : 'ccf';
+  const v = activeVersion != null ? `&version=${activeVersion}` : '';
+  const q = encodeURIComponent(query || '');
+  try {
+    const r = await fetch(`/api/anatomy/regions/search?q=${q}&source=${source}&limit=60${v}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    renderRegionList(data.items || []);
+    document.getElementById('regionCount').textContent =
+      `${data.count} 个脑区` + (source === 'mapped' ? ' (模板空间)' : ' (CCF 参考)');
+  } catch (err) {
+    console.warn('Region search error:', err);
+  }
+}
+
+function renderRegionList(items) {
+  const el = document.getElementById('regionList');
+  el.innerHTML = '';
+  for (const r of items) {
+    const hex = r.color_hex_triplet || '4ec3e0';
+    const displayName = r.name_zh || r.name || r.acronym;
+    const sub = r.name_zh ? r.name : r.acronym;
+    const vol = r.volume_mm3 != null ? `${r.volume_mm3.toFixed(2)} mm³` :
+                r.voxel_count != null ? `${r.voxel_count.toLocaleString()} vox` : '';
+
+    const item = document.createElement('div');
+    item.className = 'region-item' + (activeRegionId === r.id ? ' active' : '');
+    item.innerHTML = `
+      <span class="region-color" style="background:#${hex};"></span>
+      <div class="region-info">
+        <div class="region-name">${esc(displayName)}</div>
+        <div class="region-sub">${esc(sub)} · ${esc(r.acronym)}</div>
+      </div>
+      <span class="region-vol">${vol}</span>`;
+    item.onclick = () => selectRegion(r);
+    el.appendChild(item);
+  }
+}
+
+async function selectRegion(r) {
+  activeRegionId = r.id;
+  // 高亮列表
+  document.querySelectorAll('.region-item').forEach((el, i) => {
+    el.classList.toggle('active', el.querySelector('.region-name')?.textContent === (r.name_zh || r.name || r.acronym));
+  });
+
+  // 显示详情面板
+  const det = document.getElementById('regionDetail');
+  det.classList.add('show');
+  const hex = r.color_hex_triplet || '4ec3e0';
+  document.getElementById('rdColor').style.background = `#${hex}`;
+  document.getElementById('rdName').textContent = r.name_zh || r.name;
+  document.getElementById('rdId').textContent = r.id;
+  document.getElementById('rdAcro').textContent = r.acronym || '-';
+  document.getElementById('rdEn').textContent = r.name || '-';
+  document.getElementById('rdZh').textContent = r.name_zh || '-';
+  document.getElementById('rdVox').textContent = r.voxel_count != null ? r.voxel_count.toLocaleString() : '-';
+  document.getElementById('rdVol').textContent = r.volume_mm3 != null ? `${r.volume_mm3.toFixed(2)}` : '-';
+  document.getElementById('rdChildren').textContent = r.children_count != null ? r.children_count : '-';
+  document.getElementById('rdDepth').textContent = r.depth != null ? r.depth : '-';
+
+  // 获取完整详情 (含 children_count)
+  if (anatomyMappingReady && activeVersion != null) {
+    try {
+      const resp = await fetch(`/api/anatomy/regions/${r.id}?project_id=default&version=${activeVersion}`);
+      if (resp.ok) {
+        const detail = await resp.json();
+        document.getElementById('rdChildren').textContent = detail.children_count ?? '-';
+      }
+    } catch {}
+  }
+
+  // 加载脑区 3D 网格
+  loadRegionMesh(r.id, hex);
+}
+
+async function loadRegionMesh(regionId, hexColor) {
+  // 清除旧脑区 mesh
+  if (regionMeshGroup) { scene.remove(regionMeshGroup); regionMeshGroup = null; }
+
+  try {
+    const url = `/api/ccf/mesh/${regionId}`;
+    const gltf = await new Promise((resolve, reject) => {
+      gltfLoader.load(url, resolve, undefined, reject);
+    });
+
+    regionMeshGroup = new THREE.Group();
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(`#${hexColor}`),
+      metalness: 0.05,
+      roughness: 0.4,
+      transparent: true,
+      opacity: 0.65,
+      side: THREE.DoubleSide,
+    });
+    gltf.scene.traverse(child => {
+      if (child.isMesh) {
+        child.material = mat;
+        child.geometry.computeVertexNormals();
+      }
+    });
+    regionMeshGroup.add(gltf.scene);
+
+    // 如果有模板模型，匹配其缩放和位置
+    if (meshGroup) {
+      regionMeshGroup.scale.copy(meshGroup.scale);
+      regionMeshGroup.position.copy(meshGroup.position);
+    }
+
+    scene.add(regionMeshGroup);
+  } catch (err) {
+    console.warn('Region mesh load failed:', err);
+  }
+}
+
+async function triggerAnatomyMapping() {
+  const btn = document.getElementById('btnMapAnatomy');
+  btn.disabled = true;
+  btn.textContent = '⏳ 映射中…';
+
+  try {
+    const r = await fetch('/api/anatomy/map?project_id=default' +
+      (activeVersion != null ? `&version=${activeVersion}` : ''), { method: 'POST' });
+    const data = await r.json();
+    if (r.ok) {
+      btn.textContent = `✓ 任务已提交 (${data.task_id?.slice(0,8)})`;
+      // 轮询状态
+      pollAnatomyMapping(data.task_id);
+    } else {
+      btn.textContent = `✗ ${data.detail || '失败'}`;
+      setTimeout(() => { btn.disabled = false; btn.textContent = '🧬 生成解剖映射'; }, 3000);
+    }
+  } catch (err) {
+    btn.textContent = '✗ 网络错误';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '🧬 生成解剖映射'; }, 3000);
+  }
+}
+
+async function pollAnatomyMapping(taskId) {
+  const btn = document.getElementById('btnMapAnatomy');
+  const poll = setInterval(async () => {
+    try {
+      const r = await fetch(`/api/tasks/${taskId}`);
+      if (!r.ok) return;
+      const t = await r.json();
+      if (t.status === 'completed') {
+        clearInterval(poll);
+        btn.textContent = '✓ 映射完成';
+        anatomyMappingReady = true;
+        document.getElementById('mapBtnWrap').style.display = 'none';
+        // 刷新列表
+        const q = document.getElementById('regionSearchInput').value;
+        await searchRegions(q);
+      } else if (t.status === 'failed') {
+        clearInterval(poll);
+        btn.textContent = '✗ 映射失败';
+        btn.disabled = false;
+      }
+    } catch {}
+  }, 2000);
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 </script>
 </body>
 </html>

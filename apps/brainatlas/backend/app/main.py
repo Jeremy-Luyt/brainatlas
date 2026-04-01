@@ -20,8 +20,12 @@ from .routes.session import router as session_router
 from .routes.tasks import router as tasks_router
 from .routes.template import router as template_router
 from .routes.upload import router as upload_router
+from .routes.mesh import router as mesh_router
+from .routes.ccf import router as ccf_router
+from .routes.anatomy import router as anatomy_router
 from .services.session_service import cleanup_current_session
 from .services.task_service import list_tasks, update_task
+from .services.task_runner import is_task_alive
 from .utils.paths import data_root
 
 # 修正 Windows 上 .gz 的 MIME 类型，确保 NiiVue 能识别体数据
@@ -44,6 +48,9 @@ app.include_router(tasks_router, prefix="/api")
 app.include_router(samples_router, prefix="/api")
 app.include_router(results_router, prefix="/api")
 app.include_router(template_router, prefix="/api")
+app.include_router(mesh_router, prefix="/api")
+app.include_router(ccf_router, prefix="/api")
+app.include_router(anatomy_router, prefix="/api")
 
 
 @app.on_event("startup")
@@ -53,17 +60,22 @@ def startup_cleanup() -> None:
     可通过 BRAINATLAS_AUTO_CLEAN_SESSION_ON_START=0 关闭。
     使用标记文件防止 --reload 热重载时反复清理。
     """
-    # 总是清理僵尸任务（上次进程死后遗留的 running）
+    # 总是清理僵尸任务（根据 heartbeat 判断: 有心跳的任务保留, 无心跳的标记失败）
     try:
         for t in list_tasks("default"):
             if t.get("status") in ("running", "queued"):
-                update_task(
-                    t["task_id"],
-                    status="failed",
-                    error_message="server restarted, task aborted",
-                    project_id="default",
-                )
-        print("[startup] zombie tasks cleaned")
+                tid = t["task_id"]
+                if is_task_alive("default", tid):
+                    print(f"[startup] task {tid[:8]} still alive (heartbeat ok), keeping")
+                else:
+                    update_task(
+                        tid,
+                        status="failed",
+                        error_message="server restarted, task aborted (no heartbeat)",
+                        project_id="default",
+                    )
+                    print(f"[startup] zombie task {tid[:8]} marked failed")
+        print("[startup] zombie task check done")
     except Exception as exc:
         print(f"[startup] zombie task cleanup failed: {exc}")
 
@@ -96,9 +108,12 @@ from .services.registration_service import run_global_registration_task  # noqa:
 from .services.prepare_service import run_prepare_task  # noqa: E402
 from .services.template_service import run_template_build_task  # noqa: E402
 
+from .services.anatomy_service import run_anatomy_mapping_task  # noqa: E402
+
 register_handler("global_registration", run_global_registration_task)
 register_handler("sample_prepare", run_prepare_task)
 register_handler("template_build", run_template_build_task)
+register_handler("anatomy_mapping", run_anatomy_mapping_task)
 
 _frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
 _upload_file = _frontend_dir / "upload" / "index.html"

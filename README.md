@@ -38,6 +38,8 @@
 | 🖥️ **3D WebGL 浏览器** | 基于 NiiVue 的多平面/三维渲染查看器 |
 | ⚡ **异步任务系统** | 后台线程池执行 + JSON 持久化 + 实时日志轮询 |
 | 📂 **多项目管理** | 项目级隔离，支持批量操作 + 流水线状态看板 |
+| 🧬 **解剖图谱映射** | CCF 标注 → 自建模板空间映射 + 1327 脑区索引 (含中文名) |
+| 🔍 **脑区检索** | 中/英/缩写搜索脑区 + 体积统计 + 3D 脑区网格高亮 |
 
 ---
 
@@ -148,6 +150,8 @@ brainatlas/
 │   │   │   ├── template.py              #   POST /api/template/select-t0|build
 │   │   │   ├── projects.py              #   GET  /api/projects/{id}
 │   │   │   ├── session.py               #   POST /api/session/cleanup
+│   │   │   ├── anatomy.py               #   POST /api/anatomy/map; GET regions/search
+│   │   │   ├── ccf.py                   #   GET /api/ccf/status|regions|mesh
 │   │   │   └── ...                      #   scan, prepare, registration, results, admin
 │   │   ├── services/                    # 业务逻辑层 (12 个文件)
 │   │   │   ├── task_runner.py           #   ThreadPoolExecutor + TaskLogger
@@ -156,12 +160,15 @@ brainatlas/
 │   │   │   ├── template_service.py      #   T0 选择 + 模板构建 handler
 │   │   │   ├── qc_service.py            #   7 因子 QC 评分
 │   │   │   ├── batch_service.py         #   批量预处理 / 批量配准
+│   │   │   ├── anatomy_service.py       #   解剖映射任务 + 脑区检索
+│   │   │   ├── ccf_service.py           #   CCF 状态 / 检索 / 区域树
 │   │   │   └── ...                      #   upload, prepare, sample, project, scan, session
 │   │   └── utils/                       # paths.py, json_io.py
 │   └── frontend/
 │       ├── upload/upload.html           # 数据上传 + QC 排行榜 + T0 选择
 │       ├── viewer/viewer.html           # NiiVue 3D 浏览器
 │       ├── monitor/monitor.html         # 任务监控面板
+│       ├── atlas/atlas.html             # 脑图谱浏览 (Three.js + NiiVue + 脑区检索)
 │       └── assets/                      # 静态资源 (CSS / JS / NiiVue)
 ├── pipeline/                            # 纯函数管线 (21 个模块, 无 FastAPI 依赖)
 │   ├── io/                              # I/O 层
@@ -179,7 +186,10 @@ brainatlas/
 │   │   ├── qc_global_results.py         #   7 因子 QC 评分
 │   │   ├── convergence.py               #   收敛判定 (L2 norm)
 │   │   ├── intensity_normalize.py       #   百分位归一化 + 体素均值
-│   │   └── marker_average.py            #   标记点均值计算
+│   │   ├── marker_average.py            #   标记点均值计算
+│   │   ├── anatomy_mapper.py            #   CCF 解剖标注 → 模板空间映射
+│   │   ├── mesh_generator.py            #   NIfTI → GLB 网格生成 (Marching Cubes)
+│   │   └── region_mesh.py              #   单脑区 GLB 导出
 │   ├── wrappers/                        # 外部工具封装
 │   │   ├── global_registration.py       #   C++ 全局配准
 │   │   ├── local_registration.py        #   C++ 局部配准
@@ -191,12 +201,13 @@ brainatlas/
 │   ├── bin/                             # 外部 C++ 二进制
 │   │   ├── global/CPU/                  #   全局配准引擎
 │   │   ├── local/local_hhm/CPU/         #   局部配准引擎
-│   │   ├── STPS/                        #   STPS 原始版本
+│   │   ├── STPS/                        #   STPS 源码 (重构版, VS2013 兼容)
 │   │   ├── win64_bin/                   #   辅助 DLL
 │   │   └── 3rdparty/                    #   Qt 4.8.6 等第三方库
 │   ├── src_modern/stps/                 #   STPS C++17 现代化源码
 │   └── templates/                       # Atlas 参考模板
 │       ├── 25um_568/                    #   25μm 568nm (atlas_v3draw + landmarks)
+│       ├── ccf_25um/                    #   Allen CCF 25μm (annotation + nissl NRRD)
 │       └── fmost/                       #   fMOST 模板
 ├── config/
 │   ├── paths.yaml                       # 路径配置
@@ -250,6 +261,7 @@ python -m uvicorn apps.brainatlas.backend.app.main:app --host 127.0.0.1 --port 8
 |------|------|------|
 | **数据上传** | http://localhost:8000/upload | 拖拽上传、批量扫描、QC 排行、T0 选择 |
 | **3D 浏览器** | http://localhost:8000/viewer | NiiVue 多平面/3D 渲染 |
+| **脑图谱** | http://localhost:8000/atlas | 模板 3D 网格 + 脑区检索 + 解剖标注叠加 |
 | **任务监控** | http://localhost:8000/monitor | 实时日志、进度追踪 |
 | **API 文档** | http://localhost:8000/docs | Swagger UI 自动生成 |
 
@@ -315,6 +327,19 @@ QC 排行榜显示在上传页面右侧面板，用户可从可视化排名中**
 | `POST` | `/api/template/select-t0` | 选择 T0 (支持指定 sample_id) |
 | `POST` | `/api/template/build` | 启动迭代模板构建后台任务 |
 | `GET` | `/api/template/versions` | 列出所有模板版本 |
+| **解剖图谱 & CCF** | | |
+| `POST` | `/api/anatomy/map` | 触发 CCF→模板解剖映射 (后台任务) |
+| `GET` | `/api/anatomy/status` | 获取映射状态 |
+| `GET` | `/api/anatomy/regions/search?q=` | 脑区检索 (中/英/缩写, mapped/ccf) |
+| `GET` | `/api/anatomy/regions/{id}` | 单脑区详情 (含子区域 + 体积) |
+| `GET` | `/api/anatomy/regions/tree` | 脑区层级树 |
+| `GET` | `/api/anatomy/slice/{axis}/{idx}` | 标注叠加切片 PNG |
+| `GET` | `/api/ccf/status` | CCF 数据就绪状态 |
+| `GET` | `/api/ccf/regions/search?q=` | CCF 原索引脑区检索 |
+| `GET` | `/api/ccf/mesh/{region_id}` | 脑区 3D 网格 GLB |
+| **3D 网格** | | |
+| `GET` | `/api/mesh/template/{ver}` | 模板版本 GLB 网格 |
+| `GET` | `/api/mesh/sample/{id}/global` | 样本配准结果 GLB |
 | **项目** | | |
 | `GET` | `/api/projects/{pid}` | 项目概览 + 样本/任务索引 |
 | `GET` | `/api/projects/{pid}/pipeline-status` | 流水线进度统计 |
@@ -383,6 +408,7 @@ queued → running → completed ✅
 | `global_registration` | `run_global_registration_task` | 全局仿射配准 (C++ exe) |
 | `sample_prepare` | `run_prepare_task` | 格式转换 + 预览生成 + QC |
 | `template_build` | `run_template_build_task` | 迭代模板构建 (多步流水线) |
+| `anatomy_mapping` | `run_anatomy_mapping_task` | CCF 解剖标注 → 模板空间映射 |
 
 ### 特性
 
@@ -447,6 +473,41 @@ result = run_template_build(
 ```
 
 每次迭代执行：Harris 角点 → 局部配准 → Marker 均值 → 强度归一化 → STPS 形变 → 收敛检查。
+
+### 解剖图谱映射
+
+```python
+from pipeline.atlas.anatomy_mapper import run_anatomy_mapping
+
+result = run_anatomy_mapping(
+    ccf_annotation_nii="data/ccf/annotation_25.nii.gz",
+    ccf_nissl_nii="data/ccf/ara_nissl_25.nii.gz",
+    template_nii="data/projects/default/templates/v2/template.nii.gz",
+    output_dir="data/projects/default/templates/v2/anatomy",
+    regions_index_json="data/ccf/ccf_regions_index.json",
+)
+# → {"n_regions": 580, "mapped_annotation_path": "...", ...}
+```
+
+解剖图谱映射流程将 Allen CCF 标注体映射到自建模板空间：
+
+1. **质心对齐** — 计算 CCF 参考体与自建模板的前景质心，建立粗配准
+2. **包围盒缩放** — 基于两侧前景包围盒比例，估计各向异性缩放因子
+3. **标注映射** — 使用仿射变换 + 最近邻插值将 CCF 标注体映射到模板空间
+4. **参考体映射** — 三线性插值映射 Nissl 参考体 (用于视觉对比)
+5. **边界提取** — 检测相邻体素标签差异，生成脑区轮廓
+6. **脑区统计** — 计算每个脑区在模板中的体素数、体积、质心
+
+输出文件：
+
+| 文件 | 说明 |
+|------|------|
+| `mapped_annotation.nii.gz` | 映射到模板空间的解剖标注体 |
+| `mapped_nissl.nii.gz` | 映射到模板空间的 Nissl 参考体 |
+| `annotation_boundary.nii.gz` | 脑区边界轮廓体 |
+| `region_stats.json` | 脑区统计 (ID, 名称, 体素数, 体积, 质心) |
+| `ccf_to_template_affine.json` | CCF→模板仿射变换矩阵 |
+| `anatomy_mapping_summary.json` | 映射流程摘要 |
 
 ---
 
@@ -533,6 +594,12 @@ python -m pytest tests/test_reader_v3draw.py -v
 - [x] 强度归一化 + Marker 均值
 - [x] 样本删除功能
 - [x] 任务监控面板 (Monitor)
+- [x] CCF 解剖标注映射 (质心对齐 + 最近邻)
+- [x] 1327 脑区索引 (含中文名称)
+- [x] 脑区检索 (中/英/缩写 + 层级树)
+- [x] 标注切片叠加 PNG (三轴)
+- [x] 脑区 3D 网格 GLB (Marching Cubes + Taubin 平滑)
+- [x] Atlas 脑图谱页面 (Three.js + NiiVue 双视图)
 - [ ] WebSocket 实时日志推送
 - [ ] 多用户权限管理
 - [ ] GPU 加速配准
@@ -547,10 +614,10 @@ python -m pytest tests/test_reader_v3draw.py -v
 | 路由文件 | 14 |
 | 服务模块 | 12 |
 | Pipeline 模块 | 21 |
-| 前端页面 | 3 (Upload / Viewer / Monitor) |
+| 前端页面 | 4 (Upload / Viewer / Monitor / Atlas) |
 | 测试模块 | 7 |
-| 后台 Handler | 3 (prepare / registration / template_build) |
-| Atlas 模板 | 2 (25μm_568 / fMOST) |
+| 后台 Handler | 4 (prepare / registration / template_build / anatomy_mapping) |
+| Atlas 模板 | 3 (25μm_568 / fMOST / CCF_25μm) |
 | 依赖包 | 11 |
 
 ---

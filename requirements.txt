@@ -9,3 +9,6 @@ nibabel==5.4.2
 scipy>=1.11
 imageio==2.37.3
 pillow==12.1.0
+scikit-image>=0.24
+trimesh>=4.5
+pynrrd>=1.1

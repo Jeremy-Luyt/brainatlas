@@ -1,8 +1,13 @@
-"""全局配准质量评估: 文件完整性/图像统计/前景体积/边界/对称性/清晰度 → 综合评分"""
+"""全局配准质量评估: 可扩展 plugin 评分体系
+
+每个 QC 维度注册为 (name, weight, checker_fn) 三元组。
+checker_fn 签名: (data, mask, qc, global_dir) -> (ok: bool, score: float)
+可通过 register_qc_checker() 新增自定义评分维度。
+"""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 import nibabel as nib
@@ -14,18 +19,25 @@ except ImportError:          # pragma: no cover
 
 # ─────────────────────── 常量 & 权重 ──────────────────────────
 
-QC_VERSION = "v0.1"
-
-WEIGHTS: dict[str, float] = {
-    "files":     0.20,
-    "stats":     0.15,
-    "volume":    0.20,
-    "boundary":  0.15,
-    "symmetry":  0.15,
-    "sharpness": 0.15,
-}
+QC_VERSION = "v0.2"
 
 LEVEL_THRESHOLDS = {"excellent": 0.85, "good": 0.70, "review": 0.55}
+
+# QC checker 类型: (data, mask, qc_dict, global_dir) -> (ok, score)
+QcChecker = Callable[[np.ndarray | None, np.ndarray | None, dict, Path], tuple[bool, float]]
+
+# 内部注册表: [(name, weight, checker_fn), ...]
+_checkers: list[tuple[str, float, QcChecker]] = []
+
+
+def register_qc_checker(name: str, weight: float, checker: QcChecker) -> None:
+    """注册一个 QC 评分维度。可在模块外部调用以扩展评分体系。"""
+    _checkers.append((name, weight, checker))
+
+
+def list_qc_checkers() -> list[tuple[str, float]]:
+    """列出当前所有已注册的 QC 维度及权重。"""
+    return [(name, w) for name, w, _ in _checkers]
 
 
 # ═══════════════════════ 主入口 ═══════════════════════════════
@@ -38,55 +50,72 @@ def run_global_qc(
     qc: dict[str, Any] = {"qc_version": QC_VERSION, "status": "running"}
 
     try:
-        # ── A. 文件完整性 ────────────────────────
-        files_ok, files_score = _check_files(global_dir)
-        qc["files_ok"] = files_ok
-
         # ── 加载 global.nii.gz ───────────────────
         nii_path = global_dir / "global.nii.gz"
-        if not nii_path.exists():
-            _fill_empty_image(qc)
-            qc["files_ok"] = False
-            _finalize(qc, files_score)
-            return qc
+        data: np.ndarray | None = None
+        mask: np.ndarray | None = None
 
-        data: np.ndarray = nib.load(str(nii_path)).get_fdata(dtype=np.float32)
+        if nii_path.exists():
+            data = nib.load(str(nii_path)).get_fdata(dtype=np.float32)
+            # 预计算前景 mask (供多个 checker 复用)
+            if data.size > 0:
+                thresh = _otsu_threshold(data)
+                mask = _largest_cc(data > thresh)
 
-        # ── B. 图像统计 ─────────────────────────
-        stats_ok, stats_score = _check_stats(data, qc)
+        # ── 执行所有已注册的 checker ─────────────
+        subscores: dict[str, float] = {}
+        total_weight = sum(w for _, w, _ in _checkers)
+        if total_weight <= 0:
+            total_weight = 1.0
 
-        # ── C. 前景体积 ─────────────────────────
-        volume_ok, volume_score, mask = _check_foreground(data, qc)
+        for name, weight, checker_fn in _checkers:
+            try:
+                ok, score = checker_fn(data, mask, qc, global_dir)
+                qc[f"{name}_ok"] = ok
+                subscores[name] = round(score, 4)
+            except Exception as exc:
+                qc[f"{name}_ok"] = False
+                qc[f"{name}_error"] = str(exc)
+                subscores[name] = 0.0
 
-        # ── D. 边界裁剪 ─────────────────────────
-        boundary_ok, boundary_score = _check_boundary(mask, qc)
+        # ── 综合评分 ─────────────────────────────
+        weighted_score = sum(
+            subscores.get(name, 0.0) * (w / total_weight)
+            for name, w, _ in _checkers
+        )
+        score = round(weighted_score, 4)
 
-        # ── E. 对称性 ───────────────────────────
-        symmetry_ok, symmetry_score = _check_symmetry(data, qc)
+        if score >= LEVEL_THRESHOLDS["excellent"]:
+            level = "excellent"
+        elif score >= LEVEL_THRESHOLDS["good"]:
+            level = "good"
+        elif score >= LEVEL_THRESHOLDS["review"]:
+            level = "review"
+        else:
+            level = "reject"
 
-        # ── F. 清晰度 ───────────────────────────
-        sharpness_ok, sharpness_score = _check_sharpness(data, qc)
+        files_ok = qc.get("files_ok", False)
+        fg_ratio = qc.get("foreground_ratio", 0.0)
+        usable = files_ok and (0.02 <= fg_ratio <= 0.70) and score >= 0.55
 
         qc.update({
-            "stats_ok":     stats_ok,
-            "volume_ok":    volume_ok,
-            "boundary_ok":  boundary_ok,
-            "symmetry_ok":  symmetry_ok,
-            "sharpness_ok": sharpness_ok,
+            "subscores":           subscores,
+            "score":               score,
+            "qc_level":            level,
+            "usable_for_template": usable,
+            "status":              "completed",
         })
-
-        # ── G. 综合评分 ─────────────────────────
-        _finalize(qc, files_score, stats_score, volume_score,
-                  boundary_score, symmetry_score, sharpness_score)
 
     except Exception as exc:
         qc["status"] = "error"
         qc["error"] = str(exc)
         if "subscores" not in qc:
-            _fill_empty_image(qc)
-            _finalize(qc, 0.0)
+            qc["subscores"] = {}
+            qc["score"] = 0.0
+            qc["qc_level"] = "reject"
+            qc["usable_for_template"] = False
 
-    # ── H. 初始化人工确认 ────────────────────────
+    # ── 初始化人工确认 ────────────────────────────
     qc.setdefault("manual_review", {
         "status": "pending",
         "comment": "",
@@ -97,7 +126,13 @@ def run_global_qc(
 
 # ═══════════════════ A: 文件完整性 ════════════════════════════
 
-def _check_files(d: Path) -> tuple[bool, float]:
+def _check_files(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    d = global_dir
     checks = [
         (d / "global.v3draw").exists(),
         (d / "global.nii.gz").exists(),
@@ -108,12 +143,20 @@ def _check_files(d: Path) -> tuple[bool, float]:
     ]
     critical = checks[0] and checks[1]
     score = sum(checks) / len(checks)
+    qc["files_ok"] = critical
     return critical, round(score, 4)
 
 
 # ═══════════════════ B: 图像统计 ══════════════════════════════
 
-def _check_stats(data: np.ndarray, qc: dict) -> tuple[bool, float]:
+def _check_stats(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    if data is None or data.size == 0:
+        return False, 0.0
     mn = float(np.min(data))
     mx = float(np.max(data))
     mean = float(np.mean(data))
@@ -182,9 +225,20 @@ def _largest_cc(mask: np.ndarray) -> np.ndarray:
     return (labeled == int(np.argmax(sizes)))
 
 
-def _check_foreground(data: np.ndarray, qc: dict) -> tuple[bool, float, np.ndarray]:
-    thresh = _otsu_threshold(data)
-    mask = _largest_cc(data > thresh)
+def _check_foreground(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    if data is None or data.size == 0:
+        qc["foreground_voxels"] = 0
+        qc["foreground_ratio"] = 0.0
+        return False, 0.0
+
+    if mask is None:
+        thresh = _otsu_threshold(data)
+        mask = _largest_cc(data > thresh)
 
     total = int(data.size)
     fg = int(mask.sum())
@@ -204,12 +258,20 @@ def _check_foreground(data: np.ndarray, qc: dict) -> tuple[bool, float, np.ndarr
         sc = 0.7
     else:
         sc = 0.3
-    return ok, round(sc, 4), mask
+    return ok, round(sc, 4)
 
 
 # ═══════════════════ D: 边界裁剪 ══════════════════════════════
 
-def _check_boundary(mask: np.ndarray, qc: dict) -> tuple[bool, float]:
+def _check_boundary(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    if mask is None:
+        qc["boundary_touch_ratio"] = {k: 0.0 for k in ("x0", "x1", "y0", "y1", "z0", "z1")}
+        return True, 1.0
     fg = int(mask.sum())
     if fg == 0:
         touch = {k: 0.0 for k in ("x0", "x1", "y0", "y1", "z0", "z1")}
@@ -244,8 +306,13 @@ def _check_boundary(mask: np.ndarray, qc: dict) -> tuple[bool, float]:
 
 # ═══════════════════ E: 对称性 ════════════════════════════════
 
-def _check_symmetry(data: np.ndarray, qc: dict) -> tuple[bool, float]:
-    if data.size == 0:
+def _check_symmetry(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    if data is None or data.size == 0:
         qc["symmetry_score"] = 0.0
         return False, 0.0
 
@@ -266,8 +333,13 @@ def _check_symmetry(data: np.ndarray, qc: dict) -> tuple[bool, float]:
 
 # ═══════════════════ F: 清晰度 ════════════════════════════════
 
-def _check_sharpness(data: np.ndarray, qc: dict) -> tuple[bool, float]:
-    if data.size < 1000:
+def _check_sharpness(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
+    qc: dict,
+    global_dir: Path,
+) -> tuple[bool, float]:
+    if data is None or data.size < 1000:
         qc["sharpness_score"] = 0.0
         return False, 0.0
 
@@ -294,57 +366,77 @@ def _check_sharpness(data: np.ndarray, qc: dict) -> tuple[bool, float]:
     return score > 0.3, score
 
 
-# ═══════════════════ G: 综合评分 ══════════════════════════════
+# ═══════════════════ G: 地标重投影误差 ════════════════════════
 
-def _finalize(
+def _parse_marker_file(path: Path) -> np.ndarray:
+    """解析 Vaa3D .marker 文件，返回 (N, 3) 坐标数组。"""
+    coords = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(",")
+        if len(parts) >= 3:
+            try:
+                coords.append([float(parts[0]), float(parts[1]), float(parts[2])])
+            except ValueError:
+                continue
+    return np.array(coords, dtype=np.float64) if coords else np.empty((0, 3), dtype=np.float64)
+
+
+def _check_landmark_reprojection(
+    data: np.ndarray | None,
+    mask: np.ndarray | None,
     qc: dict,
-    files_s: float = 0.0,
-    stats_s: float = 0.0,
-    volume_s: float = 0.0,
-    boundary_s: float = 0.0,
-    symmetry_s: float = 0.0,
-    sharpness_s: float = 0.0,
-) -> None:
-    subs = {
-        "files":     files_s,
-        "stats":     stats_s,
-        "volume":    volume_s,
-        "boundary":  boundary_s,
-        "symmetry":  symmetry_s,
-        "sharpness": sharpness_s,
-    }
-    score = round(sum(subs[k] * WEIGHTS[k] for k in WEIGHTS), 4)
+    global_dir: Path,
+) -> tuple[bool, float]:
+    """计算 sub/tar marker 之间的平均欧氏距离作为配准质量指标。"""
+    tar_files = sorted(global_dir.glob("*tar*.marker"))
+    sub_files = sorted(global_dir.glob("*sub*.marker"))
 
-    if score >= LEVEL_THRESHOLDS["excellent"]:
-        level = "excellent"
-    elif score >= LEVEL_THRESHOLDS["good"]:
-        level = "good"
-    elif score >= LEVEL_THRESHOLDS["review"]:
-        level = "review"
+    if not tar_files or not sub_files:
+        qc["landmark_error"] = None
+        qc["landmark_note"] = "marker files not found"
+        return True, 0.5   # 无法判断，中性分
+
+    tar_pts = _parse_marker_file(tar_files[0])
+    sub_pts = _parse_marker_file(sub_files[0])
+
+    n = min(len(tar_pts), len(sub_pts))
+    if n == 0:
+        qc["landmark_error"] = None
+        qc["landmark_note"] = "no valid landmark coordinates"
+        return True, 0.5
+
+    dists = np.linalg.norm(tar_pts[:n] - sub_pts[:n], axis=1)
+    mean_err = float(np.mean(dists))
+    max_err = float(np.max(dists))
+
+    qc["landmark_mean_error"] = round(mean_err, 4)
+    qc["landmark_max_error"] = round(max_err, 4)
+    qc["landmark_count"] = n
+
+    # 分数映射: 误差越小越好 (单位: 体素)
+    if mean_err < 3.0:
+        sc = 1.0
+    elif mean_err < 8.0:
+        sc = 0.8
+    elif mean_err < 15.0:
+        sc = 0.5
+    elif mean_err < 30.0:
+        sc = 0.3
     else:
-        level = "reject"
+        sc = 0.1
 
-    files_ok = qc.get("files_ok", False)
-    fg_ratio = qc.get("foreground_ratio", 0.0)
-    usable = files_ok and (0.02 <= fg_ratio <= 0.70) and score >= 0.55
-
-    qc.update({
-        "subscores":           subs,
-        "score":               score,
-        "qc_level":            level,
-        "usable_for_template": usable,
-        "status":              "completed",
-    })
+    return mean_err < 15.0, round(sc, 4)
 
 
-# ──────── 辅助：nii.gz 缺失时填充空结果 ────────
+# ═══════════════════ 注册所有内置 checker ═════════════════════
 
-def _fill_empty_image(qc: dict) -> None:
-    qc.update({
-        "shape": [], "dtype": "", "min": 0.0, "max": 0.0, "mean": 0.0,
-        "stats_ok": False, "volume_ok": False, "boundary_ok": False,
-        "symmetry_ok": False, "sharpness_ok": False,
-        "foreground_voxels": 0, "foreground_ratio": 0.0,
-        "boundary_touch_ratio": {k: 0.0 for k in ("x0", "x1", "y0", "y1", "z0", "z1")},
-        "symmetry_score": 0.0, "sharpness_score": 0.0,
-    })
+register_qc_checker("files",    0.15, _check_files)
+register_qc_checker("stats",    0.10, _check_stats)
+register_qc_checker("volume",   0.15, _check_foreground)
+register_qc_checker("boundary", 0.15, _check_boundary)
+register_qc_checker("symmetry", 0.15, _check_symmetry)
+register_qc_checker("sharpness",0.15, _check_sharpness)
+register_qc_checker("landmark", 0.15, _check_landmark_reprojection)
